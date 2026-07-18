@@ -1,0 +1,8 @@
+This distribution bundles the following third-party components:
+
+* OpenFHE (https://github.com/openfheorg/openfhe-development)
+  BSD 2-Clause License. Copyright (c) 2022, Duality Technologies Inc. and
+  other contributors. See https://github.com/openfheorg/openfhe-development/blob/main/LICENSE
+* GCC runtime libraries (libgcc, libstdc++, libgomp, libwinpthread)
+  GPL with GCC Runtime Library Exception.
+* CPython runtime and compiled Python libraries (PSF and respective licenses).
