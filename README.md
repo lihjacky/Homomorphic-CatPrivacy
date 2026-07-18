@@ -120,7 +120,7 @@ The server still only ever receives ciphertext and public evaluation keys.
 
 ## Slides
 
-Hackathon slide deck: [](slides/slides-126-hackathon-cat-privacy.pptx).
+Hackathon slide deck: **slides/slides-126-hackathon-cat-privacy.pptx**
 
 ## License
 
