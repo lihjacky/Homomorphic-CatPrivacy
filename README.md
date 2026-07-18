@@ -110,46 +110,41 @@ Two chat modes (toggle with the MODE button in the header):
 Either way, the FHE pipeline is identical — the LLM only powers the chat
 wording and never sees your keys or the server's ciphertext.
 
-### Configure your own LLM API key (optional)
+### Bring your own LLM — configure `.env` (optional)
 
-Set **one** of these environment variables before starting the web UI, then
-click MODE in the header to switch to LLM:
+**You choose the API endpoint and the model — nothing is prescribed.** The
+download contains **no API keys**; your configuration lives in a `.env` file
+that stays on your machine.
 
-| Provider | Variable | Model used |
-|----------|----------|------------|
-| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-5 |
-| OpenAI    | `OPENAI_API_KEY`    | gpt-4o-mini |
-| DeepSeek  | `DEEPSEEK_API_KEY`  | deepseek-chat |
+Each tool folder ships a `.env.example`. Copy it to `.env` (same folder as
+the executable), open it in any text editor, and fill in your values:
 
-Windows (PowerShell) — set for the current terminal, then launch:
-
-```powershell
-$env:DEEPSEEK_API_KEY = "sk-..."
-.\fhe-crypto-tool.exe webui --url http://127.0.0.1:8080/mcp
+```ini
+# ANY OpenAI-compatible endpoint (OpenAI, DeepSeek, Groq, OpenRouter,
+# self-hosted vLLM / Ollama, ...) + ANY model id it serves:
+FHE_LLM_BASE_URL=https://api.deepseek.com
+FHE_LLM_API_KEY=sk-your-key-here
+FHE_LLM_MODEL=deepseek-chat
 ```
 
-or persist it for all future terminals: `setx DEEPSEEK_API_KEY "sk-..."`
-(then open a NEW terminal and launch the tool from there).
+or, for Anthropic's native API:
 
-Linux / macOS:
-
-```bash
-export DEEPSEEK_API_KEY="sk-..."
-./fhe-crypto-tool webui --url http://127.0.0.1:8080/mcp
+```ini
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+FHE_LLM_MODEL=claude-sonnet-4-5
 ```
 
-**Any other OpenAI-compatible endpoint** (self-hosted vLLM/Ollama, another
-vendor): set all three of
+Restart the tool, click MODE in the web UI header, done. `FHE_LLM_MODEL` is
+always used **verbatim** — the model choice is entirely yours. Shortcut
+variables `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` also work (base URL inferred).
 
-```powershell
-$env:FHE_LLM_BASE_URL = "https://your-endpoint.example/v1"
-$env:FHE_LLM_API_KEY  = "sk-..."
-$env:FHE_LLM_MODEL    = "your-model-name"
-```
+Notes:
 
-To override the model for a built-in provider, set `FHE_LLM_MODEL` alongside
-its key. If no key is configured, the UI stays in Templated mode and tells
-you exactly what to set when you try to switch.
+* Without a `.env`, the UI runs in the offline **Templated** mode — no key
+  needed; if you try to switch to LLM it tells you exactly what to configure.
+* Ordinary environment variables (`export` / `setx`) work too and take
+  precedence over `.env`.
+* Never commit or share your `.env`.
 
 ## Deploy the inference server on a real machine
 
