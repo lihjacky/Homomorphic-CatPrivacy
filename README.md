@@ -49,24 +49,7 @@ Local Crypto MCP Server), **`fhe-infer-tool`** is the untrusted Remote Domain
 +-------------------------------------------------------------+
 ```
 
-## Quick start — Docker, one command (Linux / macOS / Windows)
-
-With [Docker](https://www.docker.com/products/docker-desktop/) installed, grab
-[docker-compose.yml](docker-compose.yml) from this repo and run:
-
-```
-docker compose up
-```
-
-Open `http://localhost:5000`, drop a photo, ask *"is this a cat?"*. Both
-containers ship **compiled binaries only** (no Python source):
-`ghcr.io/agent-security-labs/fhe-infer-tool` +
-`ghcr.io/agent-security-labs/fhe-crypto-tool` (linux/amd64; Apple Silicon runs
-them via Docker's built-in emulation). Keys persist in named volumes — the
-first classify generates your CKKS key set and registers ~1.7 GB of public
-evaluation keys with the server container (one-time, a few minutes).
-
-## Download — native builds
+## Download
 
 Grab the packages from the [**Releases**](../../releases) page:
 
@@ -119,16 +102,54 @@ cd fhe-crypto-tool
 
 Open `http://127.0.0.1:5000`, drop an image, ask *"is this a cat?"*.
 
-Two chat modes (toggle in the header):
+Two chat modes (toggle with the MODE button in the header):
 
 * **Templated** — default, fully offline, no API key needed.
-* **LLM** — bring your own key for the conversational layer. Set one of
-  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or point
-  `FHE_LLM_BASE_URL` / `FHE_LLM_API_KEY` / `FHE_LLM_MODEL` at any
-  OpenAI-compatible endpoint.
+* **LLM** — bring your own key for the conversational layer.
 
 Either way, the FHE pipeline is identical — the LLM only powers the chat
 wording and never sees your keys or the server's ciphertext.
+
+### Configure your own LLM API key (optional)
+
+Set **one** of these environment variables before starting the web UI, then
+click MODE in the header to switch to LLM:
+
+| Provider | Variable | Model used |
+|----------|----------|------------|
+| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-5 |
+| OpenAI    | `OPENAI_API_KEY`    | gpt-4o-mini |
+| DeepSeek  | `DEEPSEEK_API_KEY`  | deepseek-chat |
+
+Windows (PowerShell) — set for the current terminal, then launch:
+
+```powershell
+$env:DEEPSEEK_API_KEY = "sk-..."
+.\fhe-crypto-tool.exe webui --url http://127.0.0.1:8080/mcp
+```
+
+or persist it for all future terminals: `setx DEEPSEEK_API_KEY "sk-..."`
+(then open a NEW terminal and launch the tool from there).
+
+Linux / macOS:
+
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+./fhe-crypto-tool webui --url http://127.0.0.1:8080/mcp
+```
+
+**Any other OpenAI-compatible endpoint** (self-hosted vLLM/Ollama, another
+vendor): set all three of
+
+```powershell
+$env:FHE_LLM_BASE_URL = "https://your-endpoint.example/v1"
+$env:FHE_LLM_API_KEY  = "sk-..."
+$env:FHE_LLM_MODEL    = "your-model-name"
+```
+
+To override the model for a built-in provider, set `FHE_LLM_MODEL` alongside
+its key. If no key is configured, the UI stays in Templated mode and tells
+you exactly what to set when you try to switch.
 
 ## Deploy the inference server on a real machine
 
@@ -160,8 +181,8 @@ The server still only ever receives ciphertext and public evaluation keys.
 
 ## Notes
 
-* Windows x64 + Linux x64 native builds, plus Docker images. Non-UTF-8
-  consoles are handled automatically.
+* Windows x64 and Linux x64 native builds. Non-UTF-8 consoles are handled
+  automatically.
 * The inference server accepts any Host header when bound to a network
   interface (`0.0.0.0`); set `FHE_ALLOWED_HOSTS=your.host:8080` to re-enable
   strict Host filtering. Localhost binds keep DNS-rebinding protection on.
