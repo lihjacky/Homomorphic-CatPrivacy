@@ -10,6 +10,11 @@ plaintext result, or any secret key.
 This repository ships two standalone Windows tools. Download them, run them,
 done. No Python, no build step, no source required.
 
+![Live demo — real FHE classification in the web UI](docs/fhe-cat-demo.gif)
+
+*Real run, sped up: encrypt locally → upload ciphertext → encrypted CNN
+inference on the server → decrypt locally → "That's a cat. 79.9%".*
+
 Dual-domain architecture (Figure 1 of the IETF draft). The two tools map onto
 it directly: **`fhe-crypto-tool`** is the trusted Local Domain (MCP Client +
 Local Crypto MCP Server), **`fhe-infer-tool`** is the untrusted Remote Domain
@@ -80,6 +85,29 @@ Output:
 ```
 cat   probability 0.80   (70 s)
 ```
+
+## Web UI (chat front-end)
+
+The same pipeline with a browser chat interface — this is what the demo GIF
+above shows:
+
+```powershell
+cd fhe-crypto-tool
+.\fhe-crypto-tool.exe webui --url http://127.0.0.1:8080/mcp
+```
+
+Open `http://127.0.0.1:5000`, drop an image, ask *"is this a cat?"*.
+
+Two chat modes (toggle in the header):
+
+* **Templated** — default, fully offline, no API key needed.
+* **LLM** — bring your own key for the conversational layer. Set one of
+  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or point
+  `FHE_LLM_BASE_URL` / `FHE_LLM_API_KEY` / `FHE_LLM_MODEL` at any
+  OpenAI-compatible endpoint.
+
+Either way, the FHE pipeline is identical — the LLM only powers the chat
+wording and never sees your keys or the server's ciphertext.
 
 ## Deploy the inference server on a real machine
 
