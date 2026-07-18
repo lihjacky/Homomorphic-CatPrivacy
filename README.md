@@ -118,6 +118,10 @@ The server still only ever receives ciphertext and public evaluation keys.
   (GPL + Runtime Library Exception) — see `THIRD-PARTY-LICENSES.txt` inside
   each zip.
 
+## Slides
+
+Hackathon slide deck: [](slides/slides-126-hackathon-cat-privacy.pptx).
+
 ## License
 
 The distributed binaries are provided free of charge for evaluation and
