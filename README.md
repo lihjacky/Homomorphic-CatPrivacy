@@ -49,16 +49,37 @@ Local Crypto MCP Server), **`fhe-infer-tool`** is the untrusted Remote Domain
 +-------------------------------------------------------------+
 ```
 
-## Download
+## Quick start — Docker, one command (Linux / macOS / Windows)
 
-Grab the two zips from the [**Releases**](../../releases) page:
+With [Docker](https://www.docker.com/products/docker-desktop/) installed, grab
+[docker-compose.yml](docker-compose.yml) from this repo and run:
 
-| Tool | What it does | Run on |
-|------|--------------|--------|
-| `fhe-crypto-tool-win64.zip` | key generation, encryption, decryption — everything sensitive, all local | your machine |
-| `fhe-infer-tool-win64.zip`  | ciphertext CNN inference | your machine (localhost) **or** a real server |
+```
+docker compose up
+```
 
-Unzip each into its own folder.
+Open `http://localhost:5000`, drop a photo, ask *"is this a cat?"*. Both
+containers ship **compiled binaries only** (no Python source):
+`ghcr.io/agent-security-labs/fhe-infer-tool` +
+`ghcr.io/agent-security-labs/fhe-crypto-tool` (linux/amd64; Apple Silicon runs
+them via Docker's built-in emulation). Keys persist in named volumes — the
+first classify generates your CKKS key set and registers ~1.7 GB of public
+evaluation keys with the server container (one-time, a few minutes).
+
+## Download — native builds
+
+Grab the packages from the [**Releases**](../../releases) page:
+
+| Package | What it does | Run on |
+|---------|--------------|--------|
+| `fhe-crypto-tool-win64.zip` | key generation, encryption, decryption — everything sensitive, all local | Windows x64 |
+| `fhe-infer-tool-win64.zip`  | ciphertext CNN inference | Windows x64 (localhost) **or** a real server |
+| `fhe-crypto-tool-linux-x64.tar.gz` | same crypto client + web UI | Linux x64 (glibc 2.36+) |
+| `fhe-infer-tool-linux-x64.tar.gz`  | same inference server | Linux x64 (glibc 2.36+) |
+
+Unzip each into its own folder. On Windows, double-clicking works: the infer
+tool starts the inference server on `127.0.0.1:8080`, the crypto tool prints
+its usage.
 
 ## Quick start — one machine
 
@@ -139,7 +160,11 @@ The server still only ever receives ciphertext and public evaluation keys.
 
 ## Notes
 
-* Windows x64 build. Non-UTF-8 consoles are handled automatically.
+* Windows x64 + Linux x64 native builds, plus Docker images. Non-UTF-8
+  consoles are handled automatically.
+* The inference server accepts any Host header when bound to a network
+  interface (`0.0.0.0`); set `FHE_ALLOWED_HOSTS=your.host:8080` to re-enable
+  strict Host filtering. Localhost binds keep DNS-rebinding protection on.
 * Keys and per-run data live in `runtime_mcp\` next to each executable; delete
   that folder to reset.
 * The binaries bundle OpenFHE (BSD-2-Clause) and the MinGW/GCC runtime

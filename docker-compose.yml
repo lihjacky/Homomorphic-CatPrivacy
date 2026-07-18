@@ -1,0 +1,40 @@
+# Homomorphic-CatPrivacy — one-command demo.
+#
+#     docker compose up
+#     → open http://localhost:5000, drop a cat photo, ask "is this a cat?"
+#
+# fhe-infer  : ciphertext inference server (untrusted domain, port 8080)
+# fhe-crypto : local crypto client + chat web UI (trusted domain, port 5000)
+# Both images contain compiled binaries only (no Python source).
+# First classify generates your CKKS keys and registers ~1.8 GB of public
+# evaluation keys with the server (one-time, a few minutes).
+
+services:
+  fhe-infer:
+    image: ghcr.io/agent-security-labs/fhe-infer-tool:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - infer_state:/app/runtime_mcp
+
+  fhe-crypto:
+    image: ghcr.io/agent-security-labs/fhe-crypto-tool:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - crypto_state:/app/runtime_mcp
+    depends_on:
+      - fhe-infer
+    environment:
+      # Optional: bring-your-own LLM for the chat layer.
+      # Leave empty to use the built-in offline templated mode.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - FHE_LLM_BASE_URL=${FHE_LLM_BASE_URL:-}
+      - FHE_LLM_API_KEY=${FHE_LLM_API_KEY:-}
+      - FHE_LLM_MODEL=${FHE_LLM_MODEL:-}
+
+volumes:
+  infer_state:
+  crypto_state:
