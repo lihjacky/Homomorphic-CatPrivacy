@@ -10,13 +10,38 @@ plaintext result, or any secret key.
 This repository ships two standalone Windows tools. Download them, run them,
 done. No Python, no build step, no source required.
 
+Dual-domain architecture (Figure 1 of the IETF draft). The two tools map onto
+it directly: **`fhe-crypto-tool`** is the trusted Local Domain (MCP Client +
+Local Crypto MCP Server), **`fhe-infer-tool`** is the untrusted Remote Domain
+(Remote Inference MCP Server).
+
 ```
-  ┌─────────────────────────┐         ciphertext only          ┌────────────────────────┐
-  │  fhe-crypto-tool  (you)  │  ───────────────────────────▶   │  fhe-infer-tool (server) │
-  │  keygen · encrypt ·      │   encrypted image + eval keys    │  CNN inference over      │
-  │  decrypt  (secret key    │                                  │  ciphertext (CKKS)       │
-  │  never leaves this box)  │  ◀───────────────────────────    │  never sees plaintext    │
-  └─────────────────────────┘        encrypted result           └────────────────────────┘
+      (0) Key provisioning (init) -> obtain 'Key Reference'
++-------------------------------------------------------------+
+|                 Local Domain (Trusted Zone)                 |   == fhe-crypto-tool
+|                                                             |
+|  +------------+ (1) tools/call: fhe_encrypt +------------+  |
+|  |            |============================>| Local      |  |
+|  |            | (2) Response: ciphertext    | Crypto     |  |
+|  |            |<============================| MCP Server |  |
+|  | MCP Client |                             | [Secret &  |  |
+|  | (Agent)    | (5) tools/call: fhe_decrypt | Eval Key]  |  |
+|  |            |============================>|            |  |
+|  |            | (6) Response: plaintext     |            |  |
+|  +------------+<============================+------------+  |
+|      ^      |                                               |
++------|------|-----------------------------------------------+
+       |      |
+       |      | (3) tools/call: remote_inference {client_id, session_id, auth_token}
+       |      |     (preceded by N x upload_ciphertext_chunk, by session_id)
++------|------|-----------------------------------------------+
+|      |      |          Remote Domain (Untrusted)            |   == fhe-infer-tool
+|  +---|------V--------------------------------------------+  |
+|  |  (4) Response:         Remote Inference MCP Server    |  |
+|  |      encrypted     [Homomorphic Model, Eval Key Cache]|  |
+|  |      result                                           |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
 ```
 
 ## Download
