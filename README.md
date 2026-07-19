@@ -5,17 +5,20 @@ Privacy-preserving image classification under **Fully Homomorphic Encryption
 server computes **only on ciphertext** — it never sees your image, the
 plaintext result, or any secret key.
 
-> Created for the Hackathon associated with the IETF (ciphertext-based AI inference).
+> Created for the IETF Hackathon (ciphertext-based AI inference). It
+> implements the design in the Internet-Draft
+> [**Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)**](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp/)
+> by **Lun Li** (Huawei) and **Yaowei Tu** (National University of Singapore).
 
-This repository ships two standalone Windows tools. Download them, run them,
-done. No Python, no build step, no source required.
+This repository ships standalone Windows and Linux tools. Download them, run
+them, done. No Python, no build step, no source required.
 
 ![Live demo — real FHE classification in the web UI](docs/fhe-cat-demo.gif)
 
 *Real run, sped up: encrypt locally → upload ciphertext → encrypted CNN
 inference on the server → decrypt locally → "That's a cat. 79.9%".*
 
-Dual-domain architecture (Figure 1 of the IETF draft). The two tools map onto
+Dual-domain architecture (Figure 1 of the [IETF draft](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp/)). The two tools map onto
 it directly: **`fhe-crypto-tool`** is the trusted Local Domain (MCP Client +
 Local Crypto MCP Server), **`fhe-infer-tool`** is the untrusted Remote Domain
 (Remote Inference MCP Server).
@@ -171,8 +174,8 @@ The server still only ever receives ciphertext and public evaluation keys.
   server.
 * The inference server produces an **encrypted** result; only your local tool
   can decrypt it.
-* This mirrors the protocol described in the companion IETF draft on
-  ciphertext-based AI inference.
+* This mirrors the protocol described in the companion IETF draft,
+  [Ciphertext-Based AI Inference Tool Design for the MCP](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp/).
 
 ## Notes
 
@@ -187,9 +190,18 @@ The server still only ever receives ciphertext and public evaluation keys.
   (GPL + Runtime Library Exception) — see `THIRD-PARTY-LICENSES.txt` inside
   each zip.
 
+## IETF Draft
+
+This work implements the Internet-Draft:
+
+> **Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)**
+> Lun Li (Huawei), Yaowei Tu (National University of Singapore)
+> [datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp/)
+
 ## Slides
 
-Hackathon slide deck: **slides/slides-126-hackathon-cat-privacy.pptx**
+Hackathon slide deck:
+[slides/slides-126-hackathon-cat-privacy.pptx](slides/slides-126-hackathon-cat-privacy.pptx)
 
 ## License
 
