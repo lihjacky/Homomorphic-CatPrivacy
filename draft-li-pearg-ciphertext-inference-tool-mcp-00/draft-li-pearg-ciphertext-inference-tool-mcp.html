@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)</title>
+<meta content="Lun Li" name="author">
+<meta content="Yaowei Tu" name="author">
+<meta content="
+       The Model Context Protocol (MCP) enables AI-powered tools to interact with autonomous agents and Large Language Models (LLMs), but currently processes user inputs
+      and inference results in plaintext. This could introduce some privacy risks and violates the principle of least privilege when processing user data.
+      This contribution specifies a ciphertext-based AI inference extension for MCP. The design leverages Homomorphic Encryption (HE) to allow an MCP server or
+      remote tool to perform inference directly on encrypted data without accessing the plaintext. The server receives encrypted payloads, computes over ciphertexts
+      using an evaluation key, and returns an encrypted result that only the MCP client can decrypt. To ensure interoperability across various network environments,
+      this document defines a JSON-RPC message format independent of the underlying transport layer (supporting both local stdio and remote Server-Sent Events).
+      The format extends the existing MCP 'tools/call' method with fields for encrypted payloads, algorithm identifiers, and key references. Additionally, this document
+      discusses security considerations, key management, and implementation trade-offs. 
+    " name="description">
+<meta content="xml2rfc 3.34.0" name="generator">
+<meta content="Model Context Protocol" name="keyword">
+<meta content="Homomorphic Encryption" name="keyword">
+<meta content="Inference" name="keyword">
+<meta content="draft-li-pearg-ciphertext-inference-tool-mcp-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.34.0
+    Python 3.14.5
+    ConfigArgParse 1.7.5
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 6.1.1
+    natsort 8.4.0
+    platformdirs 4.10.1
+    pycountry 24.6.1
+    PyYAML 6.0.3
+    requests 2.33.1
+    wcwidth 0.8.2
+-->
+<link href="draft-li-pearg-ciphertext-inference-tool-mcp.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1 {
+  &#title {
+    font-size: 32px;
+    line-height: 40px;
+    clear: both;
+    margin: 1.5em 0 0.2em;
+  }
+  &#rfcnum {
+    margin: 1.5em 0 0.2em;
+    & + h1#title {
+      margin: 0.2em 0;
+    }
+  }
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+  & code, & samp, & tt {
+    font-size: 16px;
+    line-height: 0;
+  }
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    margin: 0;
+    float: right;
+    clear: both;
+  }
+  & > *:nth-child(2) {
+    clear: both;
+    display: block;
+    border: none;
+  }
+}
+svg {
+  display: block;
+  /* font-family isn't space-separated, but =~ will have to do */
+  &[font-family~="monospace" i], & [font-family~="monospace" i] {
+    font-family: var(--font-mono);
+  }
+}
+.alignCenter {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+       support flexbox yet.
+    */
+    display: table;
+    margin: 0 auto;
+  }
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+      float: none;
+    }
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+
+  &:not(.dlNewline) > dt {
+    float: left;
+    margin-right: 2ch;
+    min-width: 8ch;
+  }
+  & > dd {
+    margin-bottom: .8em;
+    margin-left: var(--indent) !important; /* stupid element overrides */
+    min-height: 2ex;
+  }
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a {
+  text-decoration: none;
+  &[href] {
+    color: var(--link-color);
+    &:hover { text-decoration: underline; }
+    &.selfRef {
+      color: var(--text-color);
+      &:hover {
+        text-decoration: none;
+        background-color: var(--highlight-color);
+      }
+    }
+  }
+}
+.iref + a[href].internal {
+  color: var(--text-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+  & blockquote {
+    margin: 0.8em 0.4em 0.4em;
+  }
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) {
+    & p {
+      margin: -2px 0;
+      max-height: 0;
+      transition: max-height 2s ease, margin 0.5s ease 0.5s;
+      overflow: hidden;
+    }
+    &:hover p,
+    & h2:target ~ p {
+      margin: 0.5em 0;
+      max-height: 500px;
+      overflow: auto;
+    }
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+  border-left: 2px var(--pilcrow-strong) solid;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+  &.right { margin-left: auto; }
+  &.center { margin-left: auto; margin-right: auto; }
+  &.left { margin-right: auto; }
+  & .text-left { text-align: left; }
+  & .text-center { text-align: center; }
+  & .text-right { text-align: right; }
+  & caption {
+    margin: 0;
+    padding: 3px 0 3px 1em;
+  }
+  & p { margin: 0; }
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+  @media not print {
+    :hover > &, &:focus {
+      opacity: 1;
+    }
+    &[href]:hover {
+      color: var(--pilcrow-strong);
+      background-color: transparent;
+    }
+  }
+  @media print {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+  & .prepared {
+    float: right;
+  }
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses {
+    & > section {
+      column-count: 2;
+      column-gap: 20px;
+    }
+    & > section > h2 {
+      column-span: all;
+    }
+    /* hack for break-inside: avoid-column */
+    & address {
+      display: inline-block;
+      break-inside: avoid-column;
+    }
+  }
+}
+
+/* Comments */
+.rfcEditorRemove {
+  & p:first-of-type {
+    font-style: italic;
+  }
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc {
+    & nav {
+      font-family: var(--font-title);
+      font-weight: 360;
+      & > ul { margin-bottom: 2em; }
+      & ul {
+        margin: 0 0 0 4px;
+        & :is(p, li) {
+          margin: 2px 0;
+        }
+      }
+    }
+    & a.toplink {
+      float: right;
+    }
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+    & h2 {
+      margin: 0;
+      padding: 2px 0 2px 6px;
+      padding-right: 1em;
+      font-size: 18px;
+      line-height: 24px;
+      min-width: 190px;
+      text-align: right;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      &::before { /* css hamburger */
+        float: right;
+        position: relative;
+        width: 1em;
+        height: 1px;
+        left: -164px;
+        margin: 8px 0 0 0;
+        background: white none repeat scroll 0 0;
+        box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+        content: "";
+      }
+    }
+    & nav {
+      display: none;
+      background-color: var(--background-color);
+      padding: 0.5em 1em 1em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      height: calc(100vh - 48px);
+      border-left: 1px solid #ddd;
+    }
+    &.active {
+      opacity: 1;
+      & nav { display: block; }
+    }
+    /* Make the collapsed ToC header render white on gray also when it's a link */
+    & h2 a,
+    & h2 a:is(:link, :focus, :hover),
+    & a.toplink,
+    & a.toplink:hover {
+      color: white;
+      background-color: #444;
+      text-decoration: none;
+    }
+    & a.toplink {
+      margin: 2px 0.5em 0;
+    }
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+    & h2 {
+      margin: 0;
+      padding: 0.25em 1em 1em 0;
+    }
+    & nav {
+      display: block;
+      height: calc(90vh - 84px);
+      bottom: 0;
+      padding: 0.5em 0 2em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    & a.toplink {
+      margin: 8px 0.5em 0;
+    }
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc {
+    page-break-before: always;
+    border-top: none;
+    padding-top: 0;
+  }
+  #n-introduction {
+    page-break-before: always;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg {
+  & :is([stroke="black"], [stroke^="#000"]) {
+    stroke: var(--text-color);
+  }
+  & :is([stroke="white"], [stroke^="#fff"]) {
+    stroke: var(--background-color);
+  }
+  & :is([fill="black"], [fill^="#000"], :not([fill])) {
+    fill: var(--text-color);
+  }
+  & :is([fill="white"], [fill^="#fff"]) {
+    fill: var(--background-color);
+  }
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">ciphertext inference tool mcp</td>
+<td class="right">June 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Li &amp; Tu</td>
+<td class="center">Expires 31 December 2026</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">Network Working Group</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-li-pearg-ciphertext-inference-tool-mcp-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-06-29" class="published">29 June 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Informational</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2026-12-31">31 December 2026</time></dd>
+<dt class="label-authors">Authors:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">L. Li</div>
+<div class="org">Huawei</div>
+</div>
+<div class="author">
+      <div class="author-name">Y. Tu</div>
+<div class="org">National University of Singapore</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">The Model Context Protocol (MCP) enables AI-powered tools to interact with autonomous agents and Large Language Models (LLMs), but currently processes user inputs
+      and inference results in plaintext. This could introduce some privacy risks and violates the principle of least privilege when processing user data.
+      This contribution specifies a ciphertext-based AI inference extension for MCP. The design leverages Homomorphic Encryption (HE) to allow an MCP server or
+      remote tool to perform inference directly on encrypted data without accessing the plaintext. The server receives encrypted payloads, computes over ciphertexts
+      using an evaluation key, and returns an encrypted result that only the MCP client can decrypt. To ensure interoperability across various network environments,
+      this document defines a JSON-RPC message format independent of the underlying transport layer (supporting both local stdio and remote Server-Sent Events).
+      The format extends the existing MCP 'tools/call' method with fields for encrypted payloads, algorithm identifiers, and key references. Additionally, this document
+      discusses security considerations, key management, and implementation trade-offs.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 31 December 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-terminology" class="internal xref">Terminology</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-problem-statement" class="internal xref">Problem Statement</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
+                <p id="section-toc.1-1.3.2.1.1" class="keepWithNext"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-operational-context" class="internal xref">Operational Context</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
+                <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-threat-model" class="internal xref">Threat Model</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-tool-goals" class="internal xref">Tool Goals</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-system-architecture" class="internal xref">System Architecture</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-architectural-domains" class="internal xref">Architectural Domains</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-component-interaction-diagr" class="internal xref">Component Interaction Diagram</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-operational-phases" class="internal xref">Operational Phases</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-protocol-specification-and-" class="internal xref">Protocol Specification and JSON-RPC Formats</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-step-1-local-encryption-req" class="internal xref">Step 1: Local Encryption Request (Client to Local Server)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-step-2-local-encryption-res" class="internal xref">Step 2: Local Encryption Response</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.3">
+                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-step-3-ciphertext-upload-an" class="internal xref">Step 3: Ciphertext Upload and Remote Inference Request (Client to Remote Server)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.4">
+                <p id="section-toc.1-1.6.2.4.1"><a href="#section-6.4" class="auto internal xref">6.4</a>.  <a href="#name-step-4-remote-inference-res" class="internal xref">Step 4: Remote Inference Response (Remote Server to Client)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.5">
+                <p id="section-toc.1-1.6.2.5.1"><a href="#section-6.5" class="auto internal xref">6.5</a>.  <a href="#name-step-5-local-decryption-req" class="internal xref">Step 5: Local Decryption Request (Client to Local Server)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.6">
+                <p id="section-toc.1-1.6.2.6.1"><a href="#section-6.6" class="auto internal xref">6.6</a>.  <a href="#name-step-6-local-decryption-res" class="internal xref">Step 6: Local Decryption Response</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-advanced-cryptographic-nego" class="internal xref">Advanced Cryptographic Negotiation Parameters</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-extended-request-parameters" class="internal xref">Extended Request Parameters (Client to Server)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-extended-response-parameter" class="internal xref">Extended Response Parameters (Server to Client)</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="intro">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">The Model Context Protocol (MCP) provides a standardized interface for AI-powered tools to interact with applications, autonomous agents, and large language
+      models. In a typical deployment, an MCP client (e.g., an IDE plugin or an agent orchestrator) sends user input to an MCP server, which invokes one or more
+      specialized tools to perform inference using local or remote downstream models.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">Currently, the input data, model parameters, and inference results are processed entirely in plaintext. This grants the MCP server and the tool provider full
+      visibility into potentially user data. In scenarios involving privacy-critical workflows—such as analyzing medical imagery, product scans, or
+      industrial defects—this plaintext exposure poses significant data leakage risks. Even if the server operator is deemed honest, a perimeter compromise of the
+      remote tool endpoint could expose historical or active user payloads. Existing transport-layer solutions like TLS only protect data in transit; the data remains
+      exposed at the computational endpoint. Emerging paradigms like Federated Learning focus on cooperative model training rather than cipertext remote inference.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">This contribution introduces a protocol extension for ciphertext-based AI inference within the MCP ecosystem. By leveraging Homomorphic Encryption (HE), an MCP
+      tool can execute deterministic or approximated machine learning inference directly on encrypted inputs. While the base model can be trained in plaintext using
+      conventional deep learning frameworks, it is converted into a homomorphic-friendly representation (e.g., approximating non-polynomial activation functions like
+      ReLU with low-degree polynomials, and scaling weights) prior to its deployment within the secure MCP tool environment. The remote server handles exclusively
+      encrypted data and public evaluation keys, generating encrypted outputs that are cryptographically opaque to all entities except the holding MCP client.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">To facilitate interoperability among decoupled clients and internet-facing tools, this document specifies standard JSON-RPC schema extensions for the MCP
+      'tools/call' sequence. This includes dedicated parameters for cryptographic algorithm identifiers, evaluation key references, and encrypted binary payloads
+      encoded in text-safe formats.<a href="#section-1-4" class="pilcrow">¶</a></p>
+<p id="section-1-5">The remainder of this document is organized as follows: Section 2 defines terminology. Section 3 describes the problem statement and threat model.
+      Section 4 outlines the design goals. Section 5 presents the system architecture. Section 6 specifies protocol schemas, and Section 8 discusses security
+      considerations.<a href="#section-1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="terminology">
+<section id="section-2">
+      <h2 id="name-terminology">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-terminology" class="section-name selfRef">Terminology</a>
+      </h2>
+<p id="section-2-1">The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span>.<a href="#section-2-1" class="pilcrow">¶</a></p>
+<p id="section-2-2">Terms related to the Model Context Protocol (MCP) not explicitly defined in this section retain their meanings as specified in the base MCP specification <span>[<a href="#MCP" class="cite xref">MCP</a>]</span>. The following terms are defined for this extension:<a href="#section-2-2" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-2-3">
+        <li id="section-2-3.1">
+          <p id="section-2-3.1.1">Homomorphic Encryption (HE): A class of cryptographic primitives that permit specific mathematical operations to be performed directly on
+        ciphertexts, yielding an encrypted result which, upon decryption, mirrors the output of those operations executed on the corresponding plaintext: exactly for exact schemes (e.g., BFV/BGV) and approximately, up to a bounded error, for approximate schemes (e.g., CKKS).<a href="#section-2-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.2">
+          <p id="section-2-3.2.1">Ciphertext Inference: The execution of a machine learning model's forward pass inside an untrusted environment where inputs, intermediate activations,
+        and outputs remain encrypted throughout the computation.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.3">
+          <p id="section-2-3.3.1">Plaintext Model: A standard machine learning model trained on unencrypted data, utilizing non-linear functions unsuited for direct homomorphic
+        evaluation.<a href="#section-2-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.4">
+          <p id="section-2-3.4.1">Homomorphic Model: A modified representation of a plaintext model structured for HE evaluation, wherein continuous non-polynomial functions are
+        replaced by polynomial approximations and model weights are quantized or encoded into a format compatible with ciphertext algebraic circuits.<a href="#section-2-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.5">
+          <p id="section-2-3.5.1">Public Key (Encryption Key): The cryptographic key used by the MCP client to encrypt plaintext inputs into ciphertexts. This key may be safely shared
+        with the MCP server or tool providers.<a href="#section-2-3.5.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.6">
+          <p id="section-2-3.6.1">Evaluation Key: A set of public cryptographic tokens (e.g., relinearization or Galois keys) required by the HE scheme to perform complex operations
+        like homomorphic multiplication or rotations on ciphertexts without enabling decryption capabilities.<a href="#section-2-3.6.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.7">
+          <p id="section-2-3.7.1">Secret Key (Decryption Key): The private cryptographic key held exclusively by the MCP client. It is strictly required to decrypt inference results
+        back into plaintext and MUST NOT be shared with the MCP server or tools.<a href="#section-2-3.7.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.8">
+          <p id="section-2-3.8.1">Encrypted Payload: The parameter or response block within an MCP JSON-RPC message containing ciphertexts, typically serialized using standard
+        binary-to-text encodings (e.g., Base64) for transport compatibility.<a href="#section-2-3.8.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.9">
+          <p id="section-2-3.9.1">Algorithm Identifier (Algorithm ID): A standardized token indicating the specific HE scheme (e.g., CKKS, BFV), ciphertext parameter set
+        (e.g., polynomial modulus degree, coefficient modulus, and scale), and library version utilized.<a href="#section-2-3.9.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.10">
+          <p id="section-2-3.10.1">Key Reference: A unique pointer or URI within the MCP message linking the payload to its corresponding evaluation keys, supporting both in-band
+        negotiation and out-of-band key management mechanisms.<a href="#section-2-3.10.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-2-3.11">
+          <p id="section-2-3.11.1">Ciphertext Inference Tool: A specialized MCP tool that advertises capability schemas requiring encrypted arguments and providing encrypted structural
+        responses under the 'tools/call' framework.<a href="#section-2-3.11.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+</section>
+</div>
+<div id="problem-statement">
+<section id="section-3">
+      <h2 id="name-problem-statement">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-problem-statement" class="section-name selfRef">Problem Statement</a>
+      </h2>
+<p id="section-3-1">This section describes the operational context, threat model, and security objectives for privacy-preserving, ciphertext-based AI inference within the
+      Model Context Protocol (MCP) framework.<a href="#section-3-1" class="pilcrow">¶</a></p>
+<div id="operational-context">
+<section id="section-3.1">
+        <h3 id="name-operational-context">
+<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-operational-context" class="section-name selfRef">Operational Context</a>
+        </h3>
+<p id="section-3.1-1">In a standard MCP deployment, an MCP client initiates tool invocations by sending structured requests to an MCP server. The server acts as an orchestration
+        layer, routing these requests to one or more specialized inference tools. These tools process user prompts or high-dimensional unstructured data—such as image
+        payloads for computer vision tasks—using trained machine learning models.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1-2">The resulting inference outputs (e.g., classification labels, bounding boxes, or metadata) are returned to the client via the server. Under the current
+        protocol specification, all components of this exchange—including user images, model parameters, and final inference results—are transmitted and
+        processed in plaintext within the execution environment.<a href="#section-3.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="threat-model">
+<section id="section-3.2">
+        <h3 id="name-threat-model">
+<a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-threat-model" class="section-name selfRef">Threat Model</a>
+        </h3>
+<p id="section-3.2-1">The threat model considers two primary categories of adversaries operating in an untrusted or semi-trusted network environment:<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<p id="section-3.2-2"><strong>Honest-but-Curious Server/Platform:</strong> The MCP server infrastructure is assumed to correctly execute the protocol routing and
+        forward requests to designated tools. However, the entity operating the server (or an attacker with persistent read-only access) may attempt to observe, log,
+        or harvest user data. For image recognition tools, this includes persisting raw pixel data, extracting embedded metadata (e.g., EXIF location data),
+         or performing passive traffic analysis (such as inferring image characteristics).<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<p id="section-3.2-3"><strong>External Network Adversaries:</strong> Untrusted third parties operating on the communication path between the Client, the MCP Server,
+        and the Remote Tool endpoints. These adversaries may eavesdrop on traffic, perform statistical side-channel analysis, or attempt to modify, delay, or replay
+        messages.<a href="#section-3.2-3" class="pilcrow">¶</a></p>
+<p id="section-3.2-4"><strong>Exclusions:</strong> This threat model explicitly excludes malicious or compromised MCP clients, fully malicious tools that deliberately
+        exfiltrate data outside the MCP boundary, and active physical attacks targeting the underlying cryptographic hardware or client-side memory leakage.<a href="#section-3.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="goals">
+<section id="section-4">
+      <h2 id="name-tool-goals">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-tool-goals" class="section-name selfRef">Tool Goals</a>
+      </h2>
+<p id="section-4-1">To address the privacy vulnerabilities and operational challenges identified in the problem statement, the ciphertext inference extension for MCP MUST satisfy
+        the following design goals:<a href="#section-4-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-4-2">
+          <li id="section-4-2.1">
+          <p id="section-4-2.1.1"><strong>Confidentiality processing:</strong> The primary goal is to ensure that the intermediate MCP server and the remote tool provider
+            never have access to the plaintext user data. The processing entity MUST NOT be capable of extracting raw pixels, semantic features, or final inference
+            outputs from the ciphertexts during the execution of the tool workflow.<a href="#section-4-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-4-2.2">
+          <p id="section-4-2.2.1"><strong>Functional Compatibility:</strong> The design must natively accommodate the algebraic structures and computational
+            primitives required by mainstream machine learning models. For example, it can support ciphertext evaluations to Convolutional Neural Networks (CNNs)
+            —such as tensor convolutions, matrix multiplications, and polynomial activation approximations—to execute practical computer vision tasks like
+            image classification and object detection, etc.<a href="#section-4-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-4-2.3">
+          <p id="section-4-2.3.1"><strong>Cryptographic Agnosticism:</strong> The protocol wire format and schema extensions MUST NOT be bound to a single homomorphic
+            encryption paradigm (e.g., CKKS). The message format must incorporate flexible negotiation parameters, such as a structured Algorithm Identifier (Algorithm ID),
+            allowing clients and servers to independently update their underlying cryptographic backends and parameter sets.<a href="#section-4-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-4-2.4">
+          <p id="section-4-2.4.1"><strong>Efficient Key Management:</strong> Recognizing that evaluation keys in advanced HE schemes (e.g., bootstrapping or relinearization keys) can scale to hundreds of megabytes, the protocol
+            design should avoid coupling key transmission directly with every individual 'tools/call' invocation. The architecture SHALL support decoupled key lifecycle
+            management, including key reuse, server-side caching, and references to out-of-band key distribution channels to minimize network bandwidth consumption.<a href="#section-4-2.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+</section>
+</div>
+<div id="system-architecture">
+<section id="section-5">
+      <h2 id="name-system-architecture">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-system-architecture" class="section-name selfRef">System Architecture</a>
+      </h2>
+<p id="section-5-1">The ciphertext-based AI inference extension introduces a dual-domain architecture designed to decouple cryptographic operations from the core orchestration logic of the AI agent. This separation ensures that cryptographic keys never leave the user's trusted environment, while computationally expensive inference is offloaded to remote infrastructure.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<div id="architectural-domains">
+<section id="section-5.1">
+        <h3 id="name-architectural-domains">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-architectural-domains" class="section-name selfRef">Architectural Domains</a>
+        </h3>
+<p id="section-5.1-1">The architecture is divided into two distinct trust boundaries: the Local Domain (Trusted) and the Remote Domain (Untrusted).<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2"><strong>Local Domain (Trusted Zone):</strong> This domain resides on the user's device or within a secure corporate perimeter. It consists of two primary components interacting via local MCP transport (e.g., stdio or local HTTP):<a href="#section-5.1-2" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.1-3">
+          <li id="section-5.1-3.1">
+            <p id="section-5.1-3.1.1"><strong>MCP Client (Agent):</strong> The primary orchestrator (e.g., an LLM-driven autonomous agent). It determines the workflow, issues 'tools/call' requests, and manages the state, but it does not inherently implement complex homomorphic cryptographic primitives.<a href="#section-5.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.1-3.2">
+            <p id="section-5.1-3.2.1"><strong>Local Cryptographic MCP Server:</strong> A locally deployed MCP server providing specialized cryptographic tools (e.g., 'fhe_encrypt', 'fhe_decrypt'). This server manages the HE key pairs and performs the actual encryption of raw user data and decryption of the remote inference results. The Secret Key (Decryption Key) strictly remains within this server.<a href="#section-5.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-5.1-4"><strong>Remote Domain (Untrusted Zone):</strong> This domain represents the external, internet-facing infrastructure providing the AI capabilities.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.1-5">
+          <li id="section-5.1-5.1">
+            <p id="section-5.1-5.1.1"><strong>Remote Inference MCP Server:</strong> A unified remote endpoint that handles the internet-facing MCP protocol (e.g., via SSE transport) and hosts the Homomorphic Model. It receives encrypted payloads, executes the ciphertext mathematical evaluations using the client's public Evaluation Key, and directly returns the encrypted inference results. The internal routing between the server interface and the specific execution tool is considered an implementation detail outside the scope of this protocol.<a href="#section-5.1-5.1.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+</section>
+</div>
+<div id="architecture-diagram">
+<section id="section-5.2">
+        <h3 id="name-component-interaction-diagr">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-component-interaction-diagr" class="section-name selfRef">Component Interaction Diagram</a>
+        </h3>
+<p id="section-5.2-1">Figure 1 illustrates the structural components, trust boundaries, and the sequential data flow of MCP 'tools/call' interactions.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<span id="name-dual-domain-architecture-an"></span><div id="fig-architecture">
+<figure id="figure-1">
+          <div class="alignLeft art-text artwork" id="section-5.2-2.1">
+<pre>
+      (0*) Key Provisioning (Init) -&gt; Obtain 'Key Ref'
++-------------------------------------------------------------+
+|                 Local Domain(Trusted Zone)                  |
+|                                                             |
+|  +------------+ (1) tools/call: fhe_encrypt +------------+  |
+|  |            |============================&gt;| Local      |  |
+|  |            | (2) Response: Ciphertext    | Crypto     |  |
+|  |            |&lt;============================| MCP Server |  |
+|  | MCP Client |                             | [Secret &amp;  |  |
+|  | (Agent)    | (5) tools/call: fhe_decrypt | Eval Key]  |  |
+|  |            |============================&gt;|            |  |
+|  |            | (6) Response: Plaintext     |            |  |
+|  +------------+&lt;============================+------------+  |
+|      ^      |                                               |
++------|------|-----------------------------------------------+
+       |      |
+       |      | (3) tools/call: remote_inference {client_id, session_id, auth_token}
+       |      |     (preceded by N x upload_ciphertext_chunk, by session_id)
++------|------|-----------------------------------------------+
+|      |      |           Remote Domain                       |
+|  +---|------V--------------------------------------------+  |
+|  |  (4) Response:         Remote Inference MCP Server    |  |
+|  |      Encrypted     [Homomorphic Model, Eval Key Cache]|  |
+|  |      Result                                           |  |
+|  |                                                       |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
+</pre>
+</div>
+<figcaption><a href="#figure-1" class="selfRef">Figure 1</a>:
+<a href="#name-dual-domain-architecture-an" class="selfRef">Dual-Domain Architecture and Workflow for Ciphertext Inference</a>
+          </figcaption></figure>
+</div>
+</section>
+</div>
+<div id="operational-phases">
+<section id="section-5.3">
+        <h3 id="name-operational-phases">
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-operational-phases" class="section-name selfRef">Operational Phases</a>
+        </h3>
+<p id="section-5.3-1">The execution of a ciphertext inference workflow is divided into two distinct phases. The MCP Client acts as the central router orchestrating all operations.<a href="#section-5.3-1" class="pilcrow">¶</a></p>
+<p id="section-5.3-2"><strong>Phase 1: Key Provisioning Phase</strong><a href="#section-5.3-2" class="pilcrow">¶</a></p>
+<p id="section-5.3-3">To prevent excessive bandwidth consumption during each inference, the Evaluation Key SHALL be provisioned to the Remote Inference MCP Server independently. Once successfully provisioned, the Remote Server issues a 'Key Reference' (e.g., a URI or session token)
+        which the Client stores for subsequent use.<a href="#section-5.3-3" class="pilcrow">¶</a></p>
+<p id="section-5.3-4">TODO: How the key (e.g., evaluation key) can be provisioned is ffs<a href="#section-5.3-4" class="pilcrow">¶</a></p>
+<p id="section-5.3-5"><strong>Phase 2: Ciphertext Inference Workflow</strong><a href="#section-5.3-5" class="pilcrow">¶</a></p>
+<p id="section-5.3-6">The core inference sequence consists of three distinct request/response interaction pairs orchestrated by the client:<a href="#section-5.3-6" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.3-7">
+          <li id="section-5.3-7.1">
+            <p id="section-5.3-7.1.1"><strong>Local Encryption (Steps 1-2):</strong> The Client initiates a 'tools/call' request to the Local Cryptographic MCP Server containing the raw user data.
+          The local server processes the plaintext and returns the Encrypted Payload.<a href="#section-5.3-7.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.3-7.2">
+            <p id="section-5.3-7.2.1"><strong>Remote Inference (Steps 3-4):</strong> The Client issues a 'tools/call' request to the Remote Inference MCP Server. The request includes the Encrypted Payload,
+          the 'Key Reference', and the Algorithm ID. The remote server evaluates the ciphertext through its homomorphic-friendly model and returns an Encrypted Result.<a href="#section-5.3-7.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.3-7.3">
+            <p id="section-5.3-7.3.1"><strong>Local Decryption (Steps 5-6):</strong> The Client sends the Encrypted Result via a final 'tools/call' back to the Local Cryptographic MCP Server. The local
+          server uses the Secret Key to decipher the payload and returns the final Plaintext Result to the Client.<a href="#section-5.3-7.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+</section>
+</div>
+</section>
+</div>
+<div id="protocol-specification">
+<section id="section-6">
+      <h2 id="name-protocol-specification-and-">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-protocol-specification-and-" class="section-name selfRef">Protocol Specification and JSON-RPC Formats</a>
+      </h2>
+<p id="section-6-1">This section specifies the standard JSON-RPC message structures required to execute the ciphertext inference workflow within the MCP ecosystem. All interactions are based on the standard MCP 'tools/call' method, extended with specific argument schemas for cryptographic payloads.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">[TODO: Define Step 0 - Key Provisioning Request and Response Formats.]<a href="#section-6-2" class="pilcrow">¶</a></p>
+<div id="step1-local-encryption-request">
+<section id="section-6.1">
+        <h3 id="name-step-1-local-encryption-req">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-step-1-local-encryption-req" class="section-name selfRef">Step 1: Local Encryption Request (Client to Local Server)</a>
+        </h3>
+<p id="section-6.1-1">To initiate the workflow, the MCP Client sends a 'tools/call' request to the Local Cryptographic MCP Server to encrypt the raw user data. The target tool is generically referenced as 'fhe_encrypt'.<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<span id="name-example-local-encryption-re"></span><figure id="figure-2">
+          <div class="lang-json sourcecode" id="section-6.1-2.1">
+<pre>
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "method": "tools/call",
+  "params": {
+    "name": "fhe_encrypt",
+    "arguments": {
+      "client_id": "agent_fe8354f2851b",
+      "image_path": "/home/user/cat.jpg",
+      "session_dir": "/runtime_mcp/sessions/session_20260617_8f3a9b"
+    }
+  }
+}
+</pre>
+</div>
+<figcaption><a href="#figure-2" class="selfRef">Figure 2</a>:
+<a href="#name-example-local-encryption-re" class="selfRef">Example: Local Encryption Request</a>
+          </figcaption></figure>
+<p id="section-6.1-3">The 'client_id' identifies the calling client and selects its locally held HE key set; the corresponding Secret Key never leaves the Local Domain, while the matching Evaluation Key is the one provisioned to the Remote Inference MCP Server during the Key Provisioning phase. The 'image_path' is an absolute path to the plaintext input on the trusted host; only this reference is passed to the local server, so the raw image bytes never appear in any MCP message. The 'session_dir' designates the local directory into which the resulting input ciphertexts are written for the current inference session. The HE scheme and parameter set are determined by the key set bound to 'client_id', so no separate algorithm identifier is required in this request.<a href="#section-6.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="step2-local-encryption-response">
+<section id="section-6.2">
+        <h3 id="name-step-2-local-encryption-res">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-step-2-local-encryption-res" class="section-name selfRef">Step 2: Local Encryption Response</a>
+        </h3>
+<p id="section-6.2-1">[TODO: Define Step 2 - The response from the Local Server containing the 'encrypted_payload' as a Base64 string.]<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="step3-remote-inference-request">
+<section id="section-6.3">
+        <h3 id="name-step-3-ciphertext-upload-an">
+<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-step-3-ciphertext-upload-an" class="section-name selfRef">Step 3: Ciphertext Upload and Remote Inference Request (Client to Remote Server)</a>
+        </h3>
+<p id="section-6.3-1">The encrypted input produced in Step 2 is typically too large to embed in a single JSON-RPC message; a CKKS-encoded image input can span tens to hundreds of megabytes across multiple ciphertext objects. MCP carries no native binary frame, so all binary data is conveyed as Base64 strings within JSON 'arguments'. Following the same decoupling principle applied to evaluation keys, the MCP Client therefore transfers the ciphertext to the Remote Inference MCP Server in bounded, Base64-encoded chunks via repeated 'tools/call' invocations, and only then triggers evaluation.<a href="#section-6.3-1" class="pilcrow">¶</a></p>
+<p id="section-6.3-2"><strong>Ciphertext Upload.</strong> Each ciphertext object is split into transport-sized chunks (e.g., 32 MiB before encoding). Every chunk is delivered as an individual 'tools/call' to the 'upload_ciphertext_chunk' tool, all sharing a common 'session_id'. The server stages and reassembles the chunks for that session prior to evaluation.<a href="#section-6.3-2" class="pilcrow">¶</a></p>
+<span id="name-example-ciphertext-upload-r"></span><figure id="figure-3">
+          <div class="lang-json sourcecode" id="section-6.3-3.1">
+<pre>
+{
+  "jsonrpc": "2.0",
+  "id": "up-014",
+  "method": "tools/call",
+  "params": {
+    "name": "upload_ciphertext_chunk",
+    "arguments": {
+      "client_id": "agent_fe8354f2851b",
+      "session_id": "session_20260617_8f3a9b",
+      "file_name": "enc_input_ic0_phase0.bin",
+      "chunk_index": 0,
+      "total_chunks": 2,
+      "chunk_b64": "base64_encoded_ciphertext_chunk...",
+      "auth_token": "k7Qf6w2Jx0aB9dW3nT1uY5vH8sR4eL2"
+    }
+  }
+}
+</pre>
+</div>
+<figcaption><a href="#figure-3" class="selfRef">Figure 3</a>:
+<a href="#name-example-ciphertext-upload-r" class="selfRef">Example: Ciphertext Upload Request (one chunk)</a>
+          </figcaption></figure>
+<p id="section-6.3-4">The 'session_id' groups all chunks (and the subsequent inference) of a single request. The 'file_name' identifies the target ciphertext object, while 'chunk_index' and 'total_chunks' let the server order the slices and detect when an object is complete. The 'chunk_b64' field carries one Base64-encoded slice whose decoded size MUST NOT exceed the negotiated maximum (e.g., 32 MiB). The 'auth_token' authorizes the upload. The server returns a per-chunk acknowledgement (for example, '{"ok": true, "file_name": "enc_input_ic0_phase0.bin", "chunk_index": 0, "chunk_bytes": 4194304}') and never reconstructs any plaintext.<a href="#section-6.3-4" class="pilcrow">¶</a></p>
+<p id="section-6.3-5"><strong>Inference Invocation.</strong> Once all chunks for the session are uploaded, the MCP Client invokes the remote inference tool, which references the staged ciphertext by 'session_id' rather than re-transmitting it. This is the core operational message transmitted over the untrusted network (e.g., via Server-Sent Events).<a href="#section-6.3-5" class="pilcrow">¶</a></p>
+<span id="name-example-remote-inference-re"></span><figure id="figure-4">
+          <div class="lang-json sourcecode" id="section-6.3-6.1">
+<pre>
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "method": "tools/call",
+  "params": {
+    "name": "remote_inference_cnn",
+    "arguments": {
+      "client_id": "agent_fe8354f2851b",
+      "session_id": "session_20260617_8f3a9b",
+      "auth_token": "k7Qf6w2Jx0aB9dW3nT1uY5vH8sR4eL2",
+      "omp_threads": 9
+    }
+  }
+}
+</pre>
+</div>
+<figcaption><a href="#figure-4" class="selfRef">Figure 4</a>:
+<a href="#name-example-remote-inference-re" class="selfRef">Example: Remote Inference Request</a>
+          </figcaption></figure>
+<p id="section-6.3-7">The 'client_id' acts as the Key Reference: the remote server resolves it to the client's previously provisioned, cached Evaluation Key set, so no key material is carried in the request. The 'session_id' references the encrypted input that was transferred to the remote server for this session; the server assembles and evaluates exactly that ciphertext set through its Homomorphic Model. The 'auth_token' is a bearer credential authorizing use of the client's cached keys and session; it is verified server-side against a stored hash and MUST be transmitted only over a confidentiality-protected channel. The 'omp_threads' field is an OPTIONAL hint for the degree of evaluation parallelism and does not affect the result. Because the HE scheme and parameter set are fixed by the referenced key set, no plaintext, key material, or separate 'algorithm_id' appears in this request.<a href="#section-6.3-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="step4-remote-inference-response">
+<section id="section-6.4">
+        <h3 id="name-step-4-remote-inference-res">
+<a href="#section-6.4" class="section-number selfRef">6.4. </a><a href="#name-step-4-remote-inference-res" class="section-name selfRef">Step 4: Remote Inference Response (Remote Server to Client)</a>
+        </h3>
+<p id="section-6.4-1">Upon successful homomorphic evaluation, the Remote Inference MCP Server returns the encrypted inference results. The response strictly adheres to the standard MCP tool response structure, encapsulating the ciphertext within the 'content' array.<a href="#section-6.4-1" class="pilcrow">¶</a></p>
+<span id="name-example-remote-inference-res"></span><figure id="figure-5">
+          <div class="lang-json sourcecode" id="section-6.4-2.1">
+<pre>
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"ok\": true, \"encrypted_logit_b64\": \"base64_encoded_output...\", \"encrypted_logit_bytes\": 1048576, \"profile\": {\"infer_s\": 57.1}}"
+      }
+    ],
+    "isError": false
+  }
+}
+</pre>
+</div>
+<figcaption><a href="#figure-5" class="selfRef">Figure 5</a>:
+<a href="#name-example-remote-inference-res" class="selfRef">Example: Remote Inference Response</a>
+          </figcaption></figure>
+<p id="section-6.4-3">The 'text' field contains a serialized JSON string, following the MCP tool-response convention. The 'encrypted_logit_b64' field carries the Base64-encoded output ciphertext, i.e., the encrypted inference result, which is decryptable only with the client's Secret Key. The 'encrypted_logit_bytes' field is the size in bytes of the decoded ciphertext, useful for integrity and transfer checks. The 'profile' object conveys OPTIONAL evaluation metadata (e.g., 'infer_s', the homomorphic evaluation time in seconds). The server MUST NOT return any plaintext or semantic representation of the inference outcome.<a href="#section-6.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="step5-local-decryption-request">
+<section id="section-6.5">
+        <h3 id="name-step-5-local-decryption-req">
+<a href="#section-6.5" class="section-number selfRef">6.5. </a><a href="#name-step-5-local-decryption-req" class="section-name selfRef">Step 5: Local Decryption Request (Client to Local Server)</a>
+        </h3>
+<p id="section-6.5-1">To finalize the workflow, the MCP Client passes the remote 'encrypted_result' back to the Local Cryptographic MCP Server for decryption, invoking the 'fhe_decrypt' tool.<a href="#section-6.5-1" class="pilcrow">¶</a></p>
+<span id="name-example-local-decryption-re"></span><figure id="figure-6">
+          <div class="lang-json sourcecode" id="section-6.5-2.1">
+<pre>
+{
+  "jsonrpc": "2.0",
+  "id": "req-003",
+  "method": "tools/call",
+  "params": {
+    "name": "fhe_decrypt",
+    "arguments": {
+      "client_id": "agent_fe8354f2851b",
+      "encrypted_logit_path":
+        "/runtime_mcp/sessions/session_20260617_8f3a9b/enc_logit.bin"
+    }
+  }
+}
+</pre>
+</div>
+<figcaption><a href="#figure-6" class="selfRef">Figure 6</a>:
+<a href="#name-example-local-decryption-re" class="selfRef">Example: Local Decryption Request</a>
+          </figcaption></figure>
+<p id="section-6.5-3">The 'client_id' selects the matching locally held Secret Key. The 'encrypted_logit_path' is a local path to the encrypted result obtained in Step 4: the client persists the Base64 ciphertext from the remote response to this file and passes only its path to the local server, which decrypts it with the Secret Key and structures the final plaintext result before returning it to the agent (see Step 6). As with encryption, the ciphertext is exchanged by local reference and is never carried back over a remote MCP message.<a href="#section-6.5-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="step6-local-decryption-response">
+<section id="section-6.6">
+        <h3 id="name-step-6-local-decryption-res">
+<a href="#section-6.6" class="section-number selfRef">6.6. </a><a href="#name-step-6-local-decryption-res" class="section-name selfRef">Step 6: Local Decryption Response</a>
+        </h3>
+<p id="section-6.6-1">[TODO: Define Step 6 - The final response returning the plaintext structured data to the MCP Client.]<a href="#section-6.6-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="advanced-crypto-parameters">
+<section id="section-7">
+      <h2 id="name-advanced-cryptographic-nego">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-advanced-cryptographic-nego" class="section-name selfRef">Advanced Cryptographic Negotiation Parameters</a>
+      </h2>
+<p id="section-7-1">While the core protocol defined in Section 6 assumes that the Remote Inference MCP Server enforces default homomorphic configurations, practical deployments often require fine-grained control over computation. Variables such as multiplicative depth, ciphertext noise, and batch processing strictly govern the feasibility and performance of FHE operations.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-2">To facilitate more flexible ciphertext inference services and future protocol standardization, this section outlines recommended optional parameters. These parameters MAY be included within the 'arguments' object of the request or the 'structuredContent' object of the response to enable dynamic capability negotiation between the MCP Client and the Remote Server.<a href="#section-7-2" class="pilcrow">¶</a></p>
+<div id="advanced-request-parameters">
+<section id="section-7.1">
+        <h3 id="name-extended-request-parameters">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-extended-request-parameters" class="section-name selfRef">Extended Request Parameters (Client to Server)</a>
+        </h3>
+<p id="section-7.1-1">The following parameters allow the client to define the precise cryptographic context and payload structure before remote execution:<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-7.1-2.1">
+            <p id="section-7.1-2.1.1"><strong>scheme_context:</strong> Specifies the underlying mathematical scheme beyond a simple Algorithm ID. For AI inference, this typically indicates
+            'CKKS' (for approximate floating-point arithmetic) or 'BFV/BGV' (for exact integer arithmetic), dictating the server's evaluation rules.<a href="#section-7.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.2">
+            <p id="section-7.1-2.2.1"><strong>poly_modulus_degree &amp; scale:</strong> Explicitly declares the polynomial modulus degree N (e.g., 8192, 16384), which determines the number of
+            slots available in a single ciphertext (N/2 for CKKS, e.g., N=16384 yields 8192; N for BFV/BGV), and the scale factor essential for CKKS precision management.<a href="#section-7.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.3">
+            <p id="section-7.1-2.3.1"><strong>coeff_modulus:</strong> The ordered chain of RNS prime moduli defining the ciphertext modulus. For CKKS this chain governs the available
+            multiplicative depth (one level is consumed per rescaling) and, together with poly_modulus_degree, determines the achievable security level; the server uses it to
+            validate that the requested computation fits within the modulus budget.<a href="#section-7.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.4">
+            <p id="section-7.1-2.4.1"><strong>security_level:</strong> The targeted bit-security of the cryptographic context (e.g., 128, 192, or 256 bits). For RLWE-based schemes this is
+            a function of the polynomial modulus degree and the total bit-length of the coefficient modulus, per the Homomorphic Encryption Security Standard <span>[<a href="#HES" class="cite xref">HES</a>]</span>
+            (see also the FHE standardization effort in <span>[<a href="#ISO-FHE" class="cite xref">ISO-FHE</a>]</span>). The server MUST reject any parameter set whose poly_modulus_degree and coeff_modulus do not
+            meet the declared target, enabling weak-parameter requests to be refused before evaluation.<a href="#section-7.1-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.5">
+            <p id="section-7.1-2.5.1"><strong>max_multiplication_depth:</strong> The client's estimated upper bound of consecutive homomorphic multiplications required for the task. The server
+            SHOULD use this to pre-validate whether the requested inference exceeds the theoretical limit of the provided ciphertexts, aborting early to save computational resources.<a href="#section-7.1-2.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.6">
+            <p id="section-7.1-2.6.1"><strong>input_packing_format:</strong> Defines how the high-dimensional data (e.g., image pixels) is mapped into the 1D ciphertext slots
+            (e.g., "gip_2d", "nchw_interleaved"). This is critical for the server to determine the correct stride for Galois rotations during convolutional operations.<a href="#section-7.1-2.6.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.7">
+            <p id="section-7.1-2.7.1"><strong>batch_size &amp; slot_count:</strong> Indicates how many independent data samples are packed into the current ciphertext slots (SIMD operations).
+            This allows the remote server to optimize resource allocation for batch inference.<a href="#section-7.1-2.7.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.1-2.8">
+            <p id="section-7.1-2.8.1"><strong>galois_key_mappings:</strong> A dictionary mapping specific spatial rotation steps (e.g., strides for a 3x3 convolution window) to their corresponding
+            Galois Key references. This enables the server to perform shifting operations on ciphertext slots efficiently.<a href="#section-7.1-2.8.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="advanced-response-parameters">
+<section id="section-7.2">
+        <h3 id="name-extended-response-parameter">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-extended-response-parameter" class="section-name selfRef">Extended Response Parameters (Server to Client)</a>
+        </h3>
+<p id="section-7.2-1">Upon completing or failing the inference, the server SHOULD provide cryptographic telemetry to assist the client in parsing the result or orchestrating fallback workflows:<a href="#section-7.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-7.2-2.1">
+            <p id="section-7.2-2.1.1"><strong>noise_budget_remaining:</strong> For exact schemes (BFV/BGV), the remaining invariant noise budget of the output ciphertext, measured in bits.
+            If it approaches zero, the ciphertext may fail decryption. For approximate schemes (CKKS), where no such bit-budget exists, the server instead reports the remaining level (the count of unused primes in the coefficient-modulus chain) and the current scale, indicating the multiplicative headroom left before a re-encryption or bootstrapping workflow is required.<a href="#section-7.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-2.2">
+            <p id="section-7.2-2.2.1"><strong>computation_depth_used:</strong> The actual multiplicative depth consumed during the inference. Clients can compare this against their estimates
+            for auditing or future optimization.<a href="#section-7.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-2.3">
+            <p id="section-7.2-2.3.1"><strong>output_shape:</strong> An array (e.g., [1, 84, 84]) describing the structural dimensions of the encrypted tensor. This is strictly required for
+            the Local Cryptographic MCP Server to correctly unflatten the decrypted payload into meaningful semantic data (e.g., bounding boxes).<a href="#section-7.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-2.4">
+            <p id="section-7.2-2.4.1"><strong>error_code:</strong> Standardized machine-readable exceptions specific to homomorphic operations (e.g., "ERROR_DEPTH_EXCEEDED", "ERROR_INVALID_GALOIS_KEY",
+            "ERROR_NOISE_OVERFLOW").<a href="#section-7.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.2-2.5">
+            <p id="section-7.2-2.5.1"><strong>requires_decryption:</strong> A boolean flag used for Agent orchestration. If true, it explicitly signals to the LLM/Agent that the current output is an
+            opaque ciphertext and MUST be routed to a local decryption tool before any subsequent plaintext analysis tools can be invoked.<a href="#section-7.2-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="security-considerations">
+<section id="section-8">
+      <h2 id="name-security-considerations">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<p id="section-8-1">This section analyzes the fundamental security guarantees using FHE in MCP, and discusses trust boundaries, and protection mechanisms required to ensure the secure operation of the
+      ciphertext inference extension.<a href="#section-8-1" class="pilcrow">¶</a></p>
+<p id="section-8-2">Plaintext Confidentiality at the Remote Server: The primary security guarantee of this protocol is that the Remote Inference MCP Server operates in a non-trusted environment regarding user data. Because all inputs, intermediate
+        activations, and outputs are encrypted using a homomorphic scheme (e.g., CKKS) before leaving the local trusted domain, the remote server cannot derive any plaintext semantic
+        information. Even in the event of a total server perimeter breach or insider compromise at the remote site, historical and active user data remains cryptographically secure.<a href="#section-8-2" class="pilcrow">¶</a></p>
+<p id="section-8-3">Isolation of the Local Cryptographic Server: Since the Local Cryptographic MCP Server is responsible for generating cryptographic keys, encrypting raw user assets (such as pixel data),
+        and decrypting inference results, it handles highly plaintext. Consequently, the local server MUST be deployed within a secure zone or trusted domain (e.g., restricted to localhost).
+        It MUST NOT be exposed to the public internet.<a href="#section-8-3" class="pilcrow">¶</a></p>
+<p id="section-8-4">PKI Principles for Key Provisioning: To prevent Man-in-the-Middle (MitM) adversaries from substituting the client's public Evaluation Keys with malicious keys (which could lead to targeted calculation failures or
+        subtle cryptographic leaks), the Key Provisioning phase MUST adhere to Public Key Infrastructure (PKI) principles. Evaluation keys and their associated Key References SHOULD be
+        cryptographically signed, authenticated, and distributed over trusted channels. This ensures that the Remote Server can verifiably bind an incoming evaluation key to a legitimate,
+        authenticated MCP Client.<a href="#section-8-4" class="pilcrow">¶</a></p>
+<p id="section-8-5">Payload Integrity Protection: Homomorphic ciphertexts and cleartext RPC parameters are highly susceptible to active tampering attacks; subtle bit-flips or structural modifications
+        by a network adversary can corrupt the algebraic circuits, leading to computational failures or potential side-channel leaks. Therefore, all 'tools/call' requests and responses transmitted
+        between the Local Domain and the Remote Inference Server MUST implement robust integrity protection. In addition to transport-layer security (e.g., TLS), payloads SHOULD incorporate
+        application-layer Message Authentication Codes (MACs) or signatures to ensure end-to-end data integrity from the Client to the Remote Server.<a href="#section-8-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<section id="section-9">
+      <h2 id="name-references">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<section id="section-9.1">
+        <h3 id="name-normative-references">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="RFC2119">[RFC2119]</dt>
+      <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+<section id="section-9.2">
+        <h3 id="name-informative-references">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="HES">[HES]</dt>
+        <dd>
+<span class="refAuthor">HomomorphicEncryption.org</span>, <span class="refTitle">"Homomorphic Encryption Security Standard"</span>, <time datetime="2018-11" class="refDate">November 2018</time>, <span>&lt;<a href="https://homomorphicencryption.org/standard/">https://homomorphicencryption.org/standard/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="ISO-FHE">[ISO-FHE]</dt>
+        <dd>
+<span class="refAuthor">ISO/IEC</span>, <span class="refTitle">"Information security - Fully homomorphic encryption - Part 1: General"</span>, <span class="seriesInfo">ISO/IEC DIS 28033-1</span>, <time datetime="2024" class="refDate">2024</time>. </dd>
+<dd class="break"></dd>
+<dt id="MCP">[MCP]</dt>
+      <dd>
+<span class="refAuthor">Anthropic</span>, <span class="refTitle">"Model Context Protocol Specification"</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</section>
+<div id="authors-addresses">
+<section id="appendix-A">
+      <h2 id="name-authors-addresses">
+<a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Lun Li</span></div>
+<div dir="auto" class="left"><span class="org">Huawei</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:lilun20@huawei.com" class="email">lilun20@huawei.com</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Yaowei Tu</span></div>
+<div dir="auto" class="left"><span class="org">National University of Singapore</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:Architect117@u.nus.edu" class="email">Architect117@u.nus.edu</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>
