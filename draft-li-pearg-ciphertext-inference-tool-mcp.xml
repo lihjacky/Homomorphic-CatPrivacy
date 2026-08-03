@@ -20,7 +20,7 @@
 <?rfc subcompact="no"?>
 <?rfc topblock="yes"?>
 <?rfc comments="no"?>
-<rfc xmlns:xi="http://www.w3.org/2001/XInclude" category="info" docName="draft-li-pearg-ciphertext-inference-tool-mcp-00" ipr="trust200902" obsoletes="" updates="" submissionType="IETF" xml:lang="en" sortRefs="true" tocInclude="true" symRefs="true" version="3">
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude" category="info" docName="draft-li-pearg-ciphertext-inference-tool-mcp-latest" ipr="trust200902" obsoletes="" updates="" submissionType="IETF" xml:lang="en" sortRefs="true" tocInclude="true" symRefs="true" version="3">
   <!-- xml2rfc v2v3 conversion 3.34.0 -->
   <front>
     <title abbrev="ciphertext inference tool mcp">Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)</title>
