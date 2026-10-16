@@ -1,6 +1,0 @@
-# Preserve the published XML exactly as received and published by the IETF.
-draft-li-pearg-fhe-use-cases-00.xml -text
-draft-li-pearg-ciphertext-inference-tool-mcp-00.xml -text
-# Published renderings are also preserved byte-for-byte.
-draft-*-00.html -text
-draft-*-00.txt -text

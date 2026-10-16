@@ -25,9 +25,6 @@ jobs:
     - name: "Checkout"
       uses: actions/checkout@v6
 
-    - name: "Verify FHE publication snapshot and use-case template"
-      run: python3 "draft IETF-IRTF/verify_sources.py"
-
     - name: "Setup"
       id: setup
       run: date -u "+date=%FT%T" >>"$GITHUB_OUTPUT"

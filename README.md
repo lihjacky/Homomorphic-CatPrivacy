@@ -19,9 +19,9 @@ application and gap analysis beyond the earlier MCP contribution; the two
 documents retain separate names and version histories. Both are individual
 contributions, and neither publication implies PEARG adoption or consensus.
 
-The common draft directory contains all six published XML/HTML/TXT files,
-verified against the IETF archive. See its [overview](draft%20IETF-IRTF/README.md)
-and [file-hash index](draft%20IETF-IRTF/published-drafts.json).
+The common draft directory contains the two published XML files, one
+use-case template, and a brief [overview](draft%20IETF-IRTF/README.md).
+Read the rendered drafts on Datatracker or download them from the releases.
 
 ## Releases and downloads
 
@@ -36,9 +36,8 @@ and [file-hash index](draft%20IETF-IRTF/published-drafts.json).
 
 Contributions from other companies and the wider community are welcome.
 
-- [Use-case template: Markdown](draft%20IETF-IRTF/templates/use-case-template.md)
-- [Use-case template: RFCXML section](draft%20IETF-IRTF/templates/use-case-template.xml)
-- [Contribution instructions](draft%20IETF-IRTF/CONTRIBUTING.md)
+- [Use-case template](draft%20IETF-IRTF/templates/use-case-template.md)
+- [Contribution terms](CONTRIBUTING.md)
 - [Open an issue](https://github.com/lihjacky/Homomorphic-CatPrivacy/issues)
 - Discuss on the PEARG mailing list: `pearg@irtf.org`.
 
@@ -57,7 +56,7 @@ make
 ```
 
 The [editor-copy workflow](https://github.com/lihjacky/Homomorphic-CatPrivacy/actions/workflows/ghpages.yml)
-validates both publication snapshots and builds HTML/TXT editor copies,
+builds both drafts as HTML/TXT editor copies,
 available in its `drafts` artifacts. The current release packages the verified
 IETF publication snapshots. Existing automation and permissions are retained;
 this repository update does not submit new versions to the IETF Datatracker.
