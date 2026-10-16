@@ -1,10 +1,25 @@
-"""Check the publication snapshot and usable RFCXML contribution structure."""
+"""Verify both IETF publication snapshots and the contribution template."""
 from pathlib import Path
 import hashlib
 import json
 import xml.etree.ElementTree as ET
 
 folder = Path(__file__).resolve().parent
+catalog = json.loads((folder / 'published-drafts.json').read_text(encoding='utf-8'))
+assert {draft['name'] for draft in catalog['drafts']} == {
+    'draft-li-pearg-ciphertext-inference-tool-mcp',
+    'draft-li-pearg-fhe-use-cases',
+}
+for draft in catalog['drafts']:
+    version = draft['name'] + '-' + draft['version']
+    for ext, metadata in draft['files'].items():
+        assert ext in {'xml', 'html', 'txt'}
+        assert metadata['filename'] == version + '.' + ext
+        data = (folder / metadata['filename']).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == metadata['sha256'], metadata['filename']
+        assert len(data) == metadata['bytes']
+    assert ET.parse(folder / (version + '.xml')).getroot().get('docName') == version
+
 name = 'draft-li-pearg-fhe-use-cases'
 record = json.loads((folder / 'source-verification.json').read_text(encoding='utf-8'))
 snapshot = folder / (name + '-00.xml')
@@ -33,4 +48,4 @@ if editor.exists():
     assert not missing, missing
     assert root.find('.//section[@anchor="uc-details"]') is not None
 
-print('PASS: published XML hash, RFCXML template structure, and editor metadata/references')
+print('PASS: both IETF drafts, all six published file hashes, template, and editor metadata/references')

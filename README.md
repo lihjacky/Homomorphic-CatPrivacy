@@ -1,31 +1,66 @@
-<!-- regenerate: off (this README documents the demo/ directory) -->
+<!-- regenerate: off (this README indexes both drafts and the demo) -->
 
-# Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)
+# Homomorphic-CatPrivacy
 
-This is the working area for the individual Internet-Draft, "Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)".
+This repository collects two individual Internet-Drafts discussed in PEARG,
+together with the ciphertext-inference demonstration and contribution materials.
+The [`draft IETF-IRTF/` directory](draft%20IETF-IRTF/) is the common entry point
+for **both** published drafts.
 
-* [Editor's Copies](https://agent-security-labs.github.io/Homomorphic-CatPrivacy/)
-* [Datatracker Page](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp)
-* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-li-pearg-ciphertext-inference-tool-mcp)
-* [Compare Editor's Copy to Individual Draft](https://agent-security-labs.github.io/Homomorphic-CatPrivacy/#go.draft-li-pearg-ciphertext-inference-tool-mcp.diff)
+## IETF / IRTF drafts
 
+| Document | Published version | Files | Release |
+| --- | --- | --- | --- |
+| Fully Homomorphic Encryption Use Cases and Gap Analysis for Network Services | [draft-li-pearg-fhe-use-cases-00](https://datatracker.ietf.org/doc/draft-li-pearg-fhe-use-cases/) | [XML](draft%20IETF-IRTF/draft-li-pearg-fhe-use-cases-00.xml) · [HTML](https://www.ietf.org/archive/id/draft-li-pearg-fhe-use-cases-00.html) · [Text](https://www.ietf.org/archive/id/draft-li-pearg-fhe-use-cases-00.txt) | [Use-case release](https://github.com/lihjacky/Homomorphic-CatPrivacy/releases/tag/draft-li-pearg-fhe-use-cases-00) |
+| Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP) | [draft-li-pearg-ciphertext-inference-tool-mcp-00](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp/) | [XML](draft%20IETF-IRTF/draft-li-pearg-ciphertext-inference-tool-mcp-00.xml) · [HTML](https://www.ietf.org/archive/id/draft-li-pearg-ciphertext-inference-tool-mcp-00.html) · [Text](https://www.ietf.org/archive/id/draft-li-pearg-ciphertext-inference-tool-mcp-00.txt) | [Earlier MCP release](https://github.com/lihjacky/Homomorphic-CatPrivacy/releases/tag/draft-li-pearg-ciphertext-inference-tool-mcp-00) |
 
-## FHE Use Cases and Gap Analysis
+The use-case draft was published on **15 October 2026**. It extends the
+application and gap analysis beyond the earlier MCP contribution; the two
+documents retain separate names and version histories. Both are individual
+contributions, and neither publication implies PEARG adoption or consensus.
 
-The individual draft **Fully Homomorphic Encryption Use Cases and Gap Analysis for Network Services**
-was published on 15 October 2026 for discussion in PEARG.
+The common draft directory contains all six published XML/HTML/TXT files,
+verified against the IETF archive. See its [overview](draft%20IETF-IRTF/README.md)
+and [file-hash index](draft%20IETF-IRTF/published-drafts.json).
 
-* [Published draft on Datatracker](https://datatracker.ietf.org/doc/draft-li-pearg-fhe-use-cases/)
-* [Published XML snapshot](draft%20IETF-IRTF/draft-li-pearg-fhe-use-cases-00.xml)
-* [Editor source](draft-li-pearg-fhe-use-cases.xml)
-* [Use-case contribution template](draft%20IETF-IRTF/templates/use-case-template.md)
-* [RFCXML contribution template](draft%20IETF-IRTF/templates/use-case-template.xml)
-* [Draft materials and contribution guide](draft%20IETF-IRTF/README.md)
+## Releases and downloads
 
-Contributions from other companies and the wider community are welcome through
-GitHub issues, pull requests, and the PEARG mailing list (pearg@irtf.org).
-Publication does not imply research-group adoption or consensus.
+- [Latest release](https://github.com/lihjacky/Homomorphic-CatPrivacy/releases/latest):
+  FHE use-case draft, published XML/HTML/TXT, and contribution templates.
+- The latest release also includes a compact ZIP bundle containing both drafts
+  and their supporting materials.
+- [All releases](https://github.com/lihjacky/Homomorphic-CatPrivacy/releases):
+  the earlier MCP release remains available with its original attachments.
 
+## Contribute use cases
+
+Contributions from other companies and the wider community are welcome.
+
+- [Use-case template: Markdown](draft%20IETF-IRTF/templates/use-case-template.md)
+- [Use-case template: RFCXML section](draft%20IETF-IRTF/templates/use-case-template.xml)
+- [Contribution instructions](draft%20IETF-IRTF/CONTRIBUTING.md)
+- [Open an issue](https://github.com/lihjacky/Homomorphic-CatPrivacy/issues)
+- Discuss on the PEARG mailing list: `pearg@irtf.org`.
+
+## Editor sources and builds
+
+The root-level unversioned sources retain compatibility with the existing
+IETF draft repository tooling:
+
+- [FHE use-case editor source](draft-li-pearg-fhe-use-cases.xml)
+- [MCP editor source](draft-li-pearg-ciphertext-inference-tool-mcp.xml)
+
+Build both editor copies from the repository root:
+
+```sh
+make
+```
+
+The [editor-copy workflow](https://github.com/lihjacky/Homomorphic-CatPrivacy/actions/workflows/ghpages.yml)
+validates both publication snapshots and builds HTML/TXT editor copies,
+available in its `drafts` artifacts. The current release packages the verified
+IETF publication snapshots. Existing automation and permissions are retained;
+this repository update does not submit new versions to the IETF Datatracker.
 
 ## Demo
 
@@ -49,22 +84,8 @@ computing on ciphertext only:
 
 These are illustrative artifacts and are not part of the Internet-Draft itself.
 
-## Contributing
+## Contribution terms
 
-See the
-[guidelines for contributions](CONTRIBUTING.md).
-
-The contributing file also has tips on how to make contributions, if you
-don't already know how to do that.
-
-## Command Line Usage
-
-Formatted text and HTML versions of the draft can be built using `make`.
-
-```sh
-$ make
-```
-
-Command line usage requires that you have the necessary software installed.  See
-[the instructions](https://github.com/martinthomson/i-d-template/blob/main/doc/SETUP.md).
-
+The [IETF contribution terms](CONTRIBUTING.md) and [license notice](LICENSE.md)
+apply. For local build dependencies, see the
+[i-d-template setup guide](https://github.com/martinthomson/i-d-template/blob/main/doc/SETUP.md).

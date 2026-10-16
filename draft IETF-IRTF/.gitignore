@@ -1,4 +1,6 @@
 # Track the fixed publication renderings despite the parent wildcard ignores.
 !draft-li-pearg-fhe-use-cases-00.html
 !draft-li-pearg-fhe-use-cases-00.txt
+!draft-li-pearg-ciphertext-inference-tool-mcp-00.html
+!draft-li-pearg-ciphertext-inference-tool-mcp-00.txt
 !requirements.txt

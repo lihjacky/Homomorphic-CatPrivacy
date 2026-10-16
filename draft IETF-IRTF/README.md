@@ -1,69 +1,62 @@
-# FHE Use Cases and Gap Analysis for Network Services
+# IETF / IRTF Drafts
 
-Working materials for the individual Internet-Draft
-**Fully Homomorphic Encryption Use Cases and Gap Analysis for Network Services**,
-prepared for discussion in the Privacy Enhancements and Assessments Research Group (PEARG).
+This directory collects **both** individual Internet-Drafts associated with the
+Homomorphic-CatPrivacy project, including their published XML, HTML, and text.
+Both documents are contributions for discussion in PEARG; neither is an adopted
+research-group document.
 
-- [Datatracker](https://datatracker.ietf.org/doc/draft-li-pearg-fhe-use-cases/)
-- [Published -00 HTML](https://www.ietf.org/archive/id/draft-li-pearg-fhe-use-cases-00.html)
-- [Published -00 text](https://www.ietf.org/archive/id/draft-li-pearg-fhe-use-cases-00.txt)
-- [Published -00 XML, preserved in this repository](draft-li-pearg-fhe-use-cases-00.xml)
-- [Local HTML rendering](draft-li-pearg-fhe-use-cases-00.html)
-- [Local text rendering](draft-li-pearg-fhe-use-cases-00.txt)
-- [Editable source for the next revision](../draft-li-pearg-fhe-use-cases.xml)
-- [Use-case template: Markdown](templates/use-case-template.md)
-- [Use-case template: RFCXML section](templates/use-case-template.xml)
-- [Contribution guidance](CONTRIBUTING.md)
+## Published drafts
 
-The draft was published on **15 October 2026**. It is an individual contribution;
-publication does not imply PEARG adoption or consensus.
+| Document | Version | Published files | GitHub release |
+| --- | --- | --- | --- |
+| Fully Homomorphic Encryption Use Cases and Gap Analysis for Network Services | -00 | [XML](draft-li-pearg-fhe-use-cases-00.xml) · [HTML](draft-li-pearg-fhe-use-cases-00.html) · [Text](draft-li-pearg-fhe-use-cases-00.txt) | [Use-case release](https://github.com/lihjacky/Homomorphic-CatPrivacy/releases/tag/draft-li-pearg-fhe-use-cases-00) |
+| Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP) | -00 | [XML](draft-li-pearg-ciphertext-inference-tool-mcp-00.xml) · [HTML](draft-li-pearg-ciphertext-inference-tool-mcp-00.html) · [Text](draft-li-pearg-ciphertext-inference-tool-mcp-00.txt) | [Earlier MCP release](https://github.com/lihjacky/Homomorphic-CatPrivacy/releases/tag/draft-li-pearg-ciphertext-inference-tool-mcp-00) |
 
-## Source preservation
+The use-case draft broadens the application and gap analysis beyond the earlier
+MCP ciphertext-inference contribution. The two are separate documents, each
+with its own `-00` version; the new document does not replace the MCP draft.
 
-`draft-li-pearg-fhe-use-cases-00.xml` is the unchanged XML from the authors'
-`[1.3]draft-li-pearg-fhe-use-cases-00.zip`. On 16 October 2026, it was verified
-to be byte-identical to the XML published by the IETF:
+- [Use-case draft on Datatracker](https://datatracker.ietf.org/doc/draft-li-pearg-fhe-use-cases/)
+- [MCP draft on Datatracker](https://datatracker.ietf.org/doc/draft-li-pearg-ciphertext-inference-tool-mcp/)
 
-```text
-SHA-256: 12da0569ae4468f4acff7101006423659038978de7c79f886b8399f09222ac87
-```
+All six published files in this directory were downloaded from the IETF archive
+and verified on 16 October 2026. [published-drafts.json](published-drafts.json)
+records their source URLs and SHA-256 hashes. The use-case XML is also
+byte-identical to the authors' final `[1.3]` attachment, as recorded in
+[source-verification.json](source-verification.json).
 
-See [source-verification.json](source-verification.json). The original snapshot
-keeps its original bytes, including line endings. Local HTML/TXT renderings
-are generated with xml2rfc 3.34.1 and the publication date.
+## Editor sources and builds
 
-The root-level editor source follows this repository's existing
-[i-d-template conventions](https://github.com/martinthomson/i-d-template/blob/main/doc/REPO.md):
-its filename has no version suffix, its `docName` uses `-latest`, and a matching
-`seriesInfo` is present. Only that metadata and whitespace differ from the
-published snapshot; the draft's substantive content is preserved.
+The versioned files above are fixed publication snapshots. To retain the
+repository's existing [IETF draft build conventions](https://github.com/martinthomson/i-d-template/blob/main/doc/REPO.md),
+the two unversioned editor sources remain at the repository root:
 
-## Build and review
+- [Use-case editor source](../draft-li-pearg-fhe-use-cases.xml)
+- [MCP editor source](../draft-li-pearg-ciphertext-inference-tool-mcp.xml)
 
-From the repository root, use the existing draft build:
+Make substantive revisions in the appropriate editor source, keeping the
+published snapshots unchanged. From the repository root:
 
 ```sh
 make
 ```
 
-The existing **Update Editor's Copy** workflow discovers the root-level source,
-builds the editor's HTML/TXT, and archives the outputs. The existing release
-workflow continues to operate on draft-version tags; adding these files does
-not submit another version to the IETF.
+The [editor-copy workflow](https://github.com/lihjacky/Homomorphic-CatPrivacy/actions/workflows/ghpages.yml)
+builds both sources, validates this directory, and provides HTML/TXT build
+artifacts. Version tags use the form `draft-<name>-NN`. The current release
+packages the verified IETF publication snapshots. The repository's existing
+automation and permissions are retained; this repository update does not
+resubmit either draft to the IETF Datatracker.
 
-To reproduce the publication snapshot separately:
+## Contribute additional use cases
 
-```sh
-python -m pip install -r "draft IETF-IRTF/requirements.txt"
-python -m xml2rfc "draft IETF-IRTF/draft-li-pearg-fhe-use-cases-00.xml" --no-network --date 2026-10-15 --html --text
-```
+Contributions from other companies and the wider community are welcome.
 
-## Discussion and contributions
+- [Use-case template: Markdown](templates/use-case-template.md)
+- [Use-case template: RFCXML section](templates/use-case-template.xml)
+- [Contribution instructions](CONTRIBUTING.md)
+- [GitHub issues](https://github.com/lihjacky/Homomorphic-CatPrivacy/issues)
+- [PEARG mailing list](https://mailman3.irtf.org/mailman3/lists/pearg.irtf.org/)
 
-Contributions from other companies and the wider community are welcome. Use
-the template to describe an additional use case or propose a supported gap
-analysis, then open a [GitHub issue](https://github.com/lihjacky/Homomorphic-CatPrivacy/issues)
-or pull request. Discussion can also take place on the
-[PEARG mailing list](https://mailman3.irtf.org/mailman3/lists/pearg.irtf.org/).
-Repository contributions are subject to the existing root-level
-[IETF contribution terms](../CONTRIBUTING.md) and [license notice](../LICENSE.md).
+The existing [IETF contribution terms](../CONTRIBUTING.md) and
+[license notice](../LICENSE.md) apply.
