@@ -1,0 +1,477 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude" version="3" ipr="trust200902" category="info" submissionType="IETF" docName="draft-li-pearg-fhe-use-cases-00" consensus="false" tocInclude="true" tocDepth="3" symRefs="true" sortRefs="true">
+  <front>
+    <title abbrev="FHE Use Cases and Gaps">Fully Homomorphic Encryption Use Cases and Gap Analysis for Network Services</title>
+    <author initials="L." surname="Li" fullname="Lun Li">
+      <organization>Huawei</organization>
+      <address>
+        <email>lilun20@huawei.com</email>
+      </address>
+    </author>
+    <author initials="Y." surname="Tu" fullname="Yaowei Tu">
+      <organization>National University of Singapore</organization>
+      <address>
+        <email>Architect117@u.nus.edu</email>
+      </address>
+    </author>
+    <date year="2026" month="October" day="15"/>
+    <workgroup>Network Working Group</workgroup>
+    <keyword>privacy</keyword>
+    <keyword>homomorphic encryption</keyword>
+    <keyword>network services</keyword>
+    <keyword>PEARG</keyword>
+    <abstract>
+      <t>This document analyzes network-service use cases in which fully homomorphic encryption (FHE) can address privacy requirements not met by existing non-homomorphic-encryption 
+      solutions under the stated trust conditions. It considers general AI inference, integrated sensing and communication, and private information retrieval. Each use case 
+      describes a scenario, example flows, post-conditions, existing solutions, and potential requirements. Common gaps, a use-case summary, and brief evaluation criteria connect the 
+      analysis. The document does not specify a protocol or select a cryptographic scheme.</t>
+    </abstract>
+    <note title="Discussion" removeInRFC="true">
+      <t>This individual contribution is prepared for discussion in the Privacy Enhancements and Assessments Research Group (PEARG). It does not represent research group adoption or consensus.</t>
+    </note>
+  </front>
+  <middle>
+    <section anchor="background">
+      <name>Introduction and Background</name>
+      <t>Artificial intelligence (AI) services, network sensing, and remote lookups process sensitive information outside the user's trusted environment. Encryption in transit and at rest protects 
+      communication and storage, but an ordinary processing endpoint still accesses plaintext. The privacy question is what that endpoint and the eventual result recipient need to learn to provide 
+      the service.</t>
+
+      <t>In IETF/IRTF, some earlier work on homomorphic encryption (HE) for measurement collection <xref target="I-D.li-ppm-homomorphic-encryption"/> and subsequent fully homomorphic encryption (FHE) presentations 
+      describe advances in protected computation <xref target="IETF123-FHE"/> <xref target="IETF125-FHE"/>. The ciphertext-inference contribution for the Model Context Protocol (MCP) explored an 
+      agent invoking a remote tool with local encryption and decryption <xref target="I-D.li-pearg-ciphertext-inference-tool-mcp"/>. IETF 126 discussion identified privacy analysis and FHE 
+      evaluation as distinct from MCP protocol integration <xref target="IETF126-DISPATCH-Minutes"/> <xref target="IETF126-PEARG-Minutes"/>.</t>
+
+      <t>This document examines when FHE is useful for general AI inference, integrated sensing and communication (ISAC), and private information retrieval (PIR). For each use case, 
+      it identifies the intended privacy outcome, explains where existing non-HE solutions fall short under the stated conditions, and derives requirements that encrypted computation 
+      can support. The examples describe high-level processing rather than a protocol. Local processing or other techniques remain suitable where they already meet the requirements.</t>
+    </section>
+    <section anchor="terminology">
+      <name>Terminology</name>
+      <t>This document uses the following terms.</t>
+      <dl spacing="normal">
+        <dt>Fully Homomorphic Encryption (FHE):</dt>
+        <dd>An encryption scheme that allows computation to be performed directly on ciphertexts, producing an encrypted result that decrypts to the result of the corresponding computation on the plaintext.</dd>
+        <dt>Evaluator:</dt>
+        <dd>The remote party that performs computation over ciphertexts without holding the decryption secret.</dd>
+        <dt>Private Information Retrieval (PIR):</dt>
+        <dd>A protocol that allows a client to retrieve an item from a server database without revealing which item was requested.</dd>
+        <dt>Keyword PIR (KPIR):</dt>
+        <dd>A form of PIR in which the client retrieves the value associated with a keyword without revealing the keyword to the server.</dd>
+        <dt>Searchable Symmetric Encryption (SSE):</dt>
+        <dd>A symmetric-key construction that supports keyword lookup over an encrypted database using an encrypted index and search tokens.</dd>
+        <dt>Integrated Sensing and Communication (ISAC):</dt>
+        <dd>A system in which radio signals serve both communication and sensing, for example to detect the presence or movement of objects.</dd>
+      </dl>
+    </section>
+    <section anchor="gap-analysis">
+      <name>Summary of Potential Gaps</name>
+      <t>Homomorphic encryption (HE) is the general family of encryption methods that can permit computation or evaluation on ciphertexts. Some support only restricted operations; fully homomorphic 
+      encryption (FHE) supports general computation. Leveled FHE is configured for a chosen computation depth, while bootstrapping can extend the supported computation <xref target="BGV11"/>. 
+      FHE applications can use leveled evaluation for bounded workloads without invoking bootstrapping. This document focuses on applications and uses FHE when referring to the broader family 
+      or a documented homomorphic construction <xref target="HE-Guidelines"/>.</t>
+      
+      <t>In a general architecture with FHE capability, the evaluator is the remote computing party; the trusted party such as user itself holds protected plaintext and decryption secrets. 
+      The listed gaps below motivate encrypted computation under an honest-but-curious evaluator model; they identify where current practice may fall short of the proposed requirements, and are not claims that every non-HE method is insecure. Their mapping appears in <xref target="uc-summary"/>. 
+      Source anonymity, traffic analysis, and application authorization require complementary controls discussed in <xref target="security"/>.</t>
+      <section anchor="gap-g1">
+        <name>G1: Plaintext Exposure at the Processing Endpoint</name>
+        <t>Traditional security protocols such as Transport Layer Security (TLS) protect information in transit between endpoints <xref target="RFC8446"/>. It does not prevent an application from 
+        learning the inference inputs and features, individual ISAC reports, or lookup selection that it processes. Where that application is outside the plaintext trust boundary, the service 
+        needs useful computation without disclosing those values. FHE directly addresses this gap for compatible functions.</t>
+      </section>
+      <section anchor="gap-g2">
+        <name>G2: Coupling of Computation Authority and Plaintext Access</name>
+        <t>Ordinary remote processing requires the computing party to access the inputs and computed results. It therefore cannot enforce a separation between permission to compute 
+        and permission to read those values: a party authorized only to evaluate a model or combine reports also gains plaintext access. FHE addresses this gap by enabling evaluation without 
+        the decryption secret and returning an encrypted result to an authorized decryptor. Computation authority can thus be granted independently of decryption authority. Deciding who may 
+        receive a final result, or limiting its granularity, still requires application policy and appropriate enforcement.</t>
+      </section>
+      <section anchor="gap-gx">
+        <name>Gx: More Gaps</name>
+        <t>TODO: more privacy-related gaps and their use-case mappings are for further study (FFS).</t>
+      </section>
+    </section>
+    <section anchor="use-cases">
+      <name>Use Cases and Requirements</name>
+      <section anchor="uc-summary">
+        <name>Summary of Use Cases</name>
+        <table anchor="gap-uc-mapping">
+          <name>Privacy Gaps and Corresponding Use Cases</name>
+          <thead>
+            <tr>
+              <th>Gaps description</th>
+              <th>Use case(s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><xref target="gap-g1" format="none">G1</xref>: a remote processor learns inference inputs or features, sensing reports, or a lookup selection.</td>
+              <td><xref target="uc1" format="none">UC1</xref>, <xref target="uc2" format="none">UC2</xref>, <xref target="uc3" format="none">UC3</xref></td>
+            </tr>
+            <tr>
+              <td><xref target="gap-g2" format="none">G2</xref>: ordinary plaintext processing cannot separate permission to compute from access to the inputs and results.</td>
+              <td><xref target="uc1" format="none">UC1</xref>, <xref target="uc2" format="none">UC2</xref></td>
+            </tr>
+            <tr>
+              <td><xref target="gap-gx" format="none">Gx</xref>: Other gaps (FFS).</td>
+              <td><xref target="additional-use-cases" format="none">UCx</xref> (FFS; mapping to be determined).</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section anchor="uc-details">
+        <name>Use Cases</name>
+        <t>Each scenario is followed by four parts: example flows, post-conditions, existing non-HE solutions, and potential new requirements. The flows illustrate high-level processing and trust 
+        boundaries. Post-conditions are the intended functional and privacy outcomes; they are not guarantees of every existing solution. The requirements are analysis objectives to use FHE.</t>
+        <section anchor="uc1">
+          <name>UC1: General AI Inference</name>
+          <t><strong>Scenario:</strong> A user or an agent acting on the user's behalf invokes an externally hosted AI model. Tasks can include image classification, document analysis, or processing conversation-derived features. The service needs remote computation, but its inputs may contain personal or business information. The user wants an agreed inference result without giving the remote model provider access to protected inputs or intermediates. This is the general trusted-side/remote-tool pattern of the earlier MCP contribution <xref target="I-D.li-pearg-ciphertext-inference-tool-mcp"/>.</t>
+          <t><strong>(1) Example Flows:</strong> Alice, as a product inspector of the company, uses AI Agent to classify and detect data containing business product privacy, 
+          and prevents remote models from obtaining product images and specifications in plaintext:</t>
+          <ol spacing="normal">
+            <li>Alice or her trusted agent prepares the image representation required for the selected inference task and determines the allowed output, for example, product defect detection.</li>
+            <li>Alice encrypts the image that requires product detection and retains the decryption key. Only the public material required for ciphertext evaluation is configured to the remote network agent.</li>
+            <li>The network ciphertext inference tool is used for encrypted input without reading original product images or forwarding original data to any third parties.</li>
+            <li>The tool performs evaluation based on the ciphertext inference model and returns encrypted evaluation results.</li>
+            <li>Alice or her trusted Agent decrypts the results to obtain the actual product inspection outcomes.</li>
+          </ol>
+          <t>Call summarization is another instance: local speech recognition and segmentation prepare conversation features. The remote tool is responsible for extracting or summarizing the ciphertext call data. 
+          It then sends the summary to the participants of the call. The required output is a useful summary rather than an image label; the same input, computation, and release boundaries apply.</t>
+          <t><strong>(2) Post-conditions:</strong> The user obtains the agreed inference output at the required quality and timeliness. The remote tool provider has not obtained protected input values or intermediate features (G1). Decryption remains in the trusted domain, and any result supplied to the agent or another recipient is an authorized disclosure (G2).</t>
+          <t><strong>(3) Existing Non-HE Solutions Covering the Use-Case Functionality:</strong> Ordinary cloud inference executes the model and returns predictions over TLS, with access and retention policies governing the service. Redaction or feature minimization can reduce what is uploaded. On-device inference keeps processing local. A trusted execution environment (TEE) can isolate remote plaintext inference <xref target="RFC9397"/>, with remote attestation supporting a decision to trust that environment <xref target="RFC9334"/>.</t>
+          <t>
+            <strong>(4) Potential New Requirements Needed to Support the Use Case:</strong>
+          </t>
+          <ul spacing="normal">
+            <li anchor="uc1-r1"><strong>UC1-R1 (<xref target="gap-g1" format="none">G1</xref>): Protected inference.</strong> Support the agreed remote model function without exposing protected input values or intermediates to the evaluator, while preserving the task's required output quality.</li>
+            <li anchor="uc1-r2"><strong>UC1-R2 (<xref target="gap-g2" format="none">G2</xref>): Controlled decryption and release.</strong> Retain the decryption secret in the trusted domain and return encrypted inference results for authorized decryption. Apply recipient authorization and failure handling that avoids unintended plaintext disclosure.</li>
+          </ul>
+          <t>FHE allows the remote tool to evaluate the selected compatible model and return encrypted results without holding the decryption secret. 
+          The earlier demonstration used a convolutional neural network (CNN) to illustrate this pattern <xref target="IETF126-Ciphertext-Inference"/>. 
+          It does not establish feasibility for every AI task. Full generative summarization needs separate evidence; 
+          LG U+'s planned HE integration into communication services provides application context for that specialization <xref target="LGU-MWC26"/>.</t>
+        </section>
+        <section anchor="uc2">
+          <name>UC2: Privacy-Preserving ISAC</name>
+          <t><strong>Scenario:</strong> A facility wants to know the occupancy of an authorized area — basically, "roughly how many people are in this zone right now." 
+          The future telecom system uses bistatic sensing: one radio node transmits while another node or a User Equipment (UE) receives the echo, so transmitter and receiver are separated and work together.</t>
+          <t><strong>(1) Example Flows:</strong> The facility's application function (AF) requests an occupancy estimate for a defined zone and reporting period. A candidate protected flow is:</t>
+          <ol spacing="normal">
+            <li>The AF specifies the area, the period, and the needed result granularity; the sensing service then decides which contributors and measurements are authorized for that request.</li>
+            <li>Radio nodes or the UE prepares the selected measurements locally, and then encrypt them on the spot under a compatible computation and key arrangement — the data stays in ciphertext all the way through.</li>
+            <li>A sensing processing function receives the encrypted reports and performs the agreed fusion or regional aggregation directly without decrypting any individual input; 
+            the network function never needs to obtain private information such as the location information.</li>
+            <li>A trusted result-release authority receives the encrypted result, decrypts it inside its trusted domain, and applies the permitted output policy before releasing the occupancy estimate.</li>
+            <li>The AF uses the regional estimate for the facility service, without receiving individual reports and without holding decryption authority over them.</li>
+          </ol>
+          <t><strong>(2) Post-conditions:</strong> The AF obtains the authorized regional result at the required accuracy and timeliness. The evaluator has not learned protected reports or 
+          contributor locations from its inputs (G1). The AF receives only the permitted result and granularity (G2). Observations already available to a sensor before encryption remain outside 
+          this protection boundary.</t>
+          <t><strong>(3) Existing Non-HE Solutions Covering the Use-Case Functionality:</strong> Academic physical-layer techniques combine transmit beamforming with artificial noise to reduce an 
+          unauthorized receiver's ability to infer location from radio observations <xref target="ML25"/>. At the measurement-reporting stage, local differential privacy can instead perturb 
+          each contributor's measurements before collection, allowing aggregation with a quantified privacy and accuracy trade-off <xref target="Li20"/>. The former protects against radio 
+          sensing under its channel and attacker assumptions; it does not hide reports from a processor that receives them in plaintext. The latter can protect contributors from the collector, 
+          but its added noise may affect the required occupancy accuracy. These methods do not provide confidential computation on unperturbed reports at an untrusted fusion processor (G1). 
+          FHE can support that computation; protection against physical observation and controls on released results remain separate concerns.</t>
+          <t>
+            <strong>(4) Potential New Requirements Needed to Support the Use Case:</strong>
+          </t>
+          <ul spacing="normal">
+            <li anchor="uc2-r1"><strong>UC2-R1 (<xref target="gap-g1" format="none">G1</xref>): Protected multi-source computation.</strong> Support the agreed aggregation over encrypted reports 
+            from multiple contributors, with a compatible key arrangement.</li>
+            <li anchor="uc2-r2"><strong>UC2-R2 (<xref target="gap-g2" format="none">G2</xref>): Restricted result release.</strong> Keep report-decryption authority separate from the evaluator and the AF, and return encrypted computation results to a trusted release authority. Apply purpose, area, period, and granularity controls at release.</li>
+          </ul>
+        </section>
+        <section anchor="uc3">
+  <name>UC3: Private Retrieval (PIR) for Caller Identification</name>
+  <t><strong>Scenario:</strong> An incoming call prompts a device to fetch the current caller-identity or blocking record from a provider's database. The queried number can itself reveal a 
+  communication relationship, so the device needs the matching record without telling the provider which number it asked about — and without storing or continuously updating the provider's 
+  entire dataset on the device.</t>
+  <t><strong>(1) Example Flows:</strong> Bob's phone rings with a number he doesn't recognize. His phone needs the matching record, but the very act of asking "what is number X?" would tell the 
+  lookup service who is calling Bob. Here are the detailed steps:</t>
+  <ol spacing="normal">
+    <li>Bob's phone rings with an unknown number. The phone needs the caller record, but it must not send that number in plaintext, since the number itself would expose who is reaching out to whom.</li>
+    <li>Bob's phone seals number inside an encrypted query — like handing a librarian a closed envelope and saying "please look this up for me," instead of announcing the title out loud. 
+    The phone keeps the one key that can open the reply, and the query goes out only under the service's access policy.</li>
+    <li>The service takes that sealed query and runs it against its entire phonebook in a single pass — imagine feeding an encrypted question through every record at once — without ever opening the envelope. The phonebook itself can stay in plaintext on the provider's side; 
+    the one thing the provider never learns is what was asked.</li>
+    <li>The provider returns an encrypted answer, rather than the entire dataset.</li>
+    <li>Bob's phone recovers the matching record locally and uses it for display or a blocking decision. The provider never learned which number was queried, and the phone never had to download the full database.</li>
+  </ol>
+  <t><strong>(2) Post-conditions:</strong> Bob's device obtains the correct, current record within the application's response budget. The database service has not learned the queried number (G1), and the device has not needed a full local copy of the dataset. These conditions concern selection confidentiality; they do not establish source anonymity or unlinkability.</t>
+  <t><strong>(3) Existing Non-HE Solutions Covering the Use-Case Functionality:</strong> Searchable symmetric encryption (SSE) supports keyword lookup over an encrypted database using an encrypted 
+  index and search tokens issued under an appropriate key arrangement <xref target="CGKO06"/>. It can retrieve matching records without downloading the full database. Common efficient constructions 
+  nevertheless reveal a specified leakage profile, such as whether queries repeat and which records match; an evaluator can combine this leakage with auxiliary information to infer queried 
+  keywords <xref target="CGPR15"/>. Encrypting the records and search tokens therefore does not by itself meet this use case's requirement to conceal the selected number from the evaluator 
+  (G1). SSE also assumes an encrypted database and authorized token generation, whereas the caller-information provider may retain its database in plaintext. HE-backed PIR provides a different way 
+  to protect selection under the stated deployment conditions.</t>
+  <t><strong>(4) Potential New Requirements Needed to Support the Use Case:</strong></t>
+  <ul spacing="normal">
+    <li anchor="uc3-r1"><strong>UC3-R1 (<xref target="gap-g1" format="none">G1</xref>): Private selection.</strong> Support keyword retrieval without exposing the selected number to the database evaluator.</li>
+    <li anchor="uc3-r2"><strong>UC3-R2 (<xref target="gap-g1" format="none">G1</xref>): Provider-side private retrieval.</strong> Meet selection confidentiality while allowing computation at one provider, without full client-side database replication or reliance on non-colluding database replicas.</li>
+  </ul>
+  <t>HE-backed keyword PIR (KPIR) supports these requirements by computing a protected answer to a concealed query. Apple's Live Caller ID Lookup provides a concrete application 
+  example <xref target="Apple-LiveCallerID"/>, and its library implements the FHE-based Brakerski-Fan-Vercauteren (BFV) scheme <xref target="Apple-HE"/>. The required homomorphic operations and 
+  selected parameters determine whether a lookup workload can run within its service budget, which is the known first FHE application in this use case.</t>
+
+</section>
+        <section anchor="additional-use-cases">
+          <name>UCx: Other Use Cases</name>
+          <t>TODO: Additional use cases are for further study (FFS).</t>
+        </section>
+      </section>
+    </section>
+    <section anchor="evaluation">
+      <name>Evaluation</name>
+      <t>Evaluation checks each use case's post-conditions and potential requirements against its non-HE baseline. State cryptographic parameters and trust assumptions <xref target="HE-Guidelines"/>, and distinguish setup from recurring cost.</t>
+      <ul spacing="normal">
+        <li><strong>UC1:</strong> assess task-specific inference quality and end-to-end latency; check protected inference (<xref target="uc1-r1" format="none">UC1-R1</xref>) and authorized result release (<xref target="uc1-r2" format="none">UC1-R2</xref>).</li>
+        <li><strong>UC2:</strong> assess occupancy accuracy and fusion delay; check report confidentiality (<xref target="uc2-r1" format="none">UC2-R1</xref>) and permitted output granularity (<xref target="uc2-r2" format="none">UC2-R2</xref>).</li>
+        <li><strong>UC3:</strong> assess lookup correctness, freshness, and latency; check private selection (<xref target="uc3-r1" format="none">UC3-R1</xref>) and provider/client deployment costs (<xref target="uc3-r2" format="none">UC3-R2</xref>).</li>
+      </ul>
+      <t>Report client computation and communication overhead for each flow. TODO: Further evaluation evidence is to be added.</t>
+    </section>
+    <section anchor="security">
+      <name>Security and Privacy Considerations</name>
+      <t>G1 confidentiality does not provide execution integrity or availability. Active modification, replay, and denial of service require protection beyond the baseline model. Authentication, protected transport, and appropriate result validation remain necessary. Decrypted values and secret-dependent diagnostics are kept from an untrusted evaluator to avoid decryption oracles <xref target="Apple-HE"/>.</t>
+      <t>G2 protection depends on key custody and output authority. A sensing release authority that can decrypt raw reports is trusted to enforce the release policy; FHE alone does not enforce aggregate-only access. Sending decrypted inputs or call passages to an additional cloud model exposes them, and repeated sensing results can reveal trajectories.</t>
+      <t>Source and identity linkage are complementary privacy concerns, rather than core gaps solved by FHE. Network origin, timing, size, signaling, and stable identifiers can reveal associations even when the query is encrypted <xref target="RFC6973"/>. Source protection and unlinkable credentials require additional mechanisms and stated provider, relay, and issuer collusion assumptions. Key compromise, plaintext logs, and downstream sharing affect all use cases. Query confidentiality also does not establish database secrecy, response correctness, or per-record access restrictions.</t>
+    </section>
+    <section anchor="iana">
+      <name>IANA Considerations</name>
+      <t>This document has no IANA actions.</t>
+    </section>
+  </middle>
+  <back>
+    <references>
+      <name>Informative References</name>
+      <reference anchor="Apple-HE" target="https://github.com/apple/swift-homomorphic-encryption">
+        <front>
+          <title>Swift Homomorphic Encryption</title>
+          <author/>
+          <date year="2026" month="October" day="12"/>
+        </front>
+        <refcontent>commit 76fddec</refcontent>
+      </reference>
+      <reference anchor="Apple-LiveCallerID" target="https://developer.apple.com/documentation/identitylookup/understanding-how-live-caller-id-lookup-preserves-privacy">
+        <front>
+          <title>Understanding how Live Caller ID Lookup preserves privacy</title>
+          <author>
+            <organization>Apple</organization>
+          </author>
+          <date/>
+        </front>
+        <refcontent>Apple Developer Documentation, accessed 15 October 2026</refcontent>
+      </reference>
+      <reference anchor="BGV11" target="https://eprint.iacr.org/2011/277">
+        <front>
+          <title>Fully Homomorphic Encryption without Bootstrapping</title>
+          <author initials="Z." surname="Brakerski"/>
+          <author initials="C." surname="Gentry"/>
+          <author initials="V." surname="Vaikuntanathan"/>
+          <date year="2011"/>
+        </front>
+        <refcontent>Cryptology ePrint Archive, Paper 2011/277</refcontent>
+      </reference>
+      <reference anchor="CGKO06" target="https://eprint.iacr.org/2006/210">
+        <front>
+          <title>Searchable Symmetric Encryption: Improved Definitions and Efficient Constructions</title>
+          <author initials="R." surname="Curtmola"/>
+          <author initials="J." surname="Garay"/>
+          <author initials="S." surname="Kamara"/>
+          <author initials="R." surname="Ostrovsky"/>
+          <date year="2006"/>
+        </front>
+        <refcontent>Cryptology ePrint Archive, Paper 2006/210</refcontent>
+      </reference>
+      <reference anchor="CGPR15" target="https://doi.org/10.1145/2810103.2813700">
+        <front>
+          <title>Leakage-Abuse Attacks Against Searchable Encryption</title>
+          <author initials="D." surname="Cash"/>
+          <author initials="P." surname="Grubbs"/>
+          <author initials="J." surname="Perry"/>
+          <author initials="T." surname="Ristenpart"/>
+          <date year="2015" month="October" day="12"/>
+        </front>
+        <refcontent>Proceedings of the 22nd ACM SIGSAC Conference on Computer and Communications Security, pp. 668-679</refcontent>
+        <seriesInfo name="DOI" value="10.1145/2810103.2813700"/>
+      </reference>
+      <reference anchor="HE-Guidelines" target="https://doi.org/10.62056/anxra69p1">
+        <front>
+          <title>Security Guidelines for Implementing Homomorphic Encryption</title>
+          <author initials="J.-P." surname="Bossuat"/>
+          <author initials="R." surname="Cammarota"/>
+          <author initials="I." surname="Chillotti"/>
+          <author initials="B. R." surname="Curtis"/>
+          <author initials="W." surname="Dai"/>
+          <author initials="H." surname="Gong"/>
+          <author initials="E." surname="Hales"/>
+          <author initials="D." surname="Kim"/>
+          <author initials="B." surname="Kumara"/>
+          <author initials="C." surname="Lee"/>
+          <author initials="X." surname="Lu"/>
+          <author initials="C." surname="Maple"/>
+          <author initials="A." surname="Pedrouzo-Ulloa"/>
+          <author initials="R." surname="Player"/>
+          <author initials="Y." surname="Polyakov"/>
+          <author initials="L. A." surname="Ruiz Lopez"/>
+          <author initials="Y." surname="Song"/>
+          <author initials="D." surname="Yhee"/>
+          <date year="2025" month="January" day="13"/>
+        </front>
+        <seriesInfo name="IACR Communications in Cryptology" value="Vol. 1, No. 4"/>
+        <seriesInfo name="DOI" value="10.62056/anxra69p1"/>
+      </reference>
+      <reference anchor="I-D.li-pearg-ciphertext-inference-tool-mcp" target="https://datatracker.ietf.org/doc/html/draft-li-pearg-ciphertext-inference-tool-mcp-00">
+        <front>
+          <title>Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)</title>
+          <author initials="L." surname="Li"/>
+          <author initials="Y." surname="Tu"/>
+          <date year="2026" month="June" day="29"/>
+        </front>
+        <seriesInfo name="Internet-Draft" value="draft-li-pearg-ciphertext-inference-tool-mcp-00"/>
+      </reference>
+      <reference anchor="I-D.li-ppm-homomorphic-encryption" target="https://datatracker.ietf.org/doc/html/draft-li-ppm-homomorphic-encryption-01">
+        <front>
+          <title>Homomorphic Cryptography Protocols for Measurement Information Collection</title>
+          <author initials="L." surname="Li"/>
+          <author initials="F." surname="Liu"/>
+          <date year="2025" month="April" day="18"/>
+        </front>
+        <seriesInfo name="Internet-Draft" value="draft-li-ppm-homomorphic-encryption-01"/>
+      </reference>
+      <reference anchor="IETF123-FHE" target="https://datatracker.ietf.org/meeting/123/materials/slides-123-pearg-is-fully-homomorphic-encryption-ready-for-now-developments-and-standards-00">
+        <front>
+          <title>Is Fully Homomorphic Encryption Ready for Now? Developments and Standards</title>
+          <author initials="X." surname="Lu"/>
+          <date year="2025" month="July"/>
+        </front>
+        <refcontent>IETF 123 Proceedings, PEARG presentation</refcontent>
+      </reference>
+      <reference anchor="IETF125-FHE" target="https://datatracker.ietf.org/meeting/125/materials/slides-125-cfrg-recent-advances-in-fully-homomorphic-encryption-01">
+        <front>
+          <title>Recent Advances in Fully Homomorphic Encryption</title>
+          <author initials="X." surname="Lu"/>
+          <date year="2026" month="March"/>
+        </front>
+        <refcontent>IETF 125 Proceedings, CFRG presentation</refcontent>
+      </reference>
+      <reference anchor="IETF126-Ciphertext-Inference" target="https://datatracker.ietf.org/meeting/126/materials/slides-126-dispatch-slides-126-dispatch-ciphertext-inference-mcp-00">
+        <front>
+          <title>Ciphertext-Based AI Inference Tool Design for the Model Context Protocol (MCP)</title>
+          <author initials="Y." surname="Tu"/>
+          <author initials="L." surname="Li"/>
+          <date year="2026" month="July"/>
+        </front>
+        <refcontent>IETF 126 Proceedings, DISPATCH presentation</refcontent>
+      </reference>
+      <reference anchor="IETF126-DISPATCH-Minutes" target="https://datatracker.ietf.org/meeting/126/materials/minutes-126-dispatch-01">
+        <front>
+          <title>IETF 126 DISPATCH Minutes</title>
+          <author>
+            <organization>DISPATCH</organization>
+          </author>
+          <date year="2026" month="July" day="20"/>
+        </front>
+        <refcontent>IETF 126 Proceedings</refcontent>
+      </reference>
+      <reference anchor="IETF126-PEARG-Minutes" target="https://datatracker.ietf.org/meeting/126/materials/minutes-126-pearg-00">
+        <front>
+          <title>IETF 126 PEARG Minutes</title>
+          <author>
+            <organization>PEARG</organization>
+          </author>
+          <date year="2026" month="July" day="21"/>
+        </front>
+        <refcontent>IETF 126 Proceedings</refcontent>
+      </reference>
+      <reference anchor="LGU-MWC26" target="https://news.lguplus.com/21271">
+        <front>
+          <title>LG U+ Unveils Its Human-Centered AI Vision at MWC26</title>
+          <author>
+            <organization>LG U+</organization>
+          </author>
+          <date year="2026" month="March" day="2"/>
+        </front>
+        <refcontent>Official newsroom release in Korean; title translated</refcontent>
+      </reference>
+      <reference anchor="Li20" target="https://doi.org/10.1109/ICDCS47774.2020.00037">
+        <front>
+          <title>Towards Differentially Private Truth Discovery for Crowd Sensing Systems</title>
+          <author initials="Y." surname="Li"/>
+          <author initials="H." surname="Xiao"/>
+          <author initials="Z." surname="Qin"/>
+          <author initials="C." surname="Miao"/>
+          <author initials="L." surname="Su"/>
+          <author initials="J." surname="Gao"/>
+          <author initials="K." surname="Ren"/>
+          <author initials="B." surname="Ding"/>
+          <date year="2020" month="November"/>
+        </front>
+        <refcontent>2020 IEEE 40th International Conference on Distributed Computing Systems (ICDCS), pp. 1156-1166</refcontent>
+        <seriesInfo name="DOI" value="10.1109/ICDCS47774.2020.00037"/>
+      </reference>
+      <reference anchor="ML25" target="https://doi.org/10.1109/ICC52391.2025.11161781">
+        <front>
+          <title>Enhancing Sensing Privacy in ISAC Through Joint Signal and Artificial Noise Beamforming</title>
+          <author initials="A." surname="Musallam"/>
+          <author initials="H." surname="Li"/>
+          <date year="2025" month="June" day="8"/>
+        </front>
+        <refcontent>ICC 2025 - IEEE International Conference on Communications, pp. 6019-6024</refcontent>
+        <seriesInfo name="DOI" value="10.1109/ICC52391.2025.11161781"/>
+      </reference>
+      <reference anchor="RFC6973" target="https://www.rfc-editor.org/info/rfc6973">
+        <front>
+          <title>Privacy Considerations for Internet Protocols</title>
+          <author fullname="A. Cooper" initials="A." surname="Cooper"/>
+          <author fullname="H. Tschofenig" initials="H." surname="Tschofenig"/>
+          <author fullname="B. Aboba" initials="B." surname="Aboba"/>
+          <author fullname="J. Peterson" initials="J." surname="Peterson"/>
+          <author fullname="J. Morris" initials="J." surname="Morris"/>
+          <author fullname="M. Hansen" initials="M." surname="Hansen"/>
+          <author fullname="R. Smith" initials="R." surname="Smith"/>
+          <date month="July" year="2013"/>
+        </front>
+        <seriesInfo name="RFC" value="6973"/>
+        <seriesInfo name="DOI" value="10.17487/RFC6973"/>
+      </reference>
+      <reference anchor="RFC8446" target="https://www.rfc-editor.org/info/rfc8446">
+        <front>
+          <title>The Transport Layer Security (TLS) Protocol Version 1.3</title>
+          <author fullname="E. Rescorla" initials="E." surname="Rescorla"/>
+          <date month="August" year="2018"/>
+        </front>
+        <seriesInfo name="RFC" value="8446"/>
+        <seriesInfo name="DOI" value="10.17487/RFC8446"/>
+      </reference>
+      <reference anchor="RFC9334" target="https://www.rfc-editor.org/info/rfc9334">
+        <front>
+          <title>Remote ATtestation procedureS (RATS) Architecture</title>
+          <author fullname="H. Birkholz" initials="H." surname="Birkholz"/>
+          <author fullname="D. Thaler" initials="D." surname="Thaler"/>
+          <author fullname="M. Richardson" initials="M." surname="Richardson"/>
+          <author fullname="N. Smith" initials="N." surname="Smith"/>
+          <author fullname="W. Pan" initials="W." surname="Pan"/>
+          <date month="January" year="2023"/>
+        </front>
+        <seriesInfo name="RFC" value="9334"/>
+        <seriesInfo name="DOI" value="10.17487/RFC9334"/>
+      </reference>
+      <reference anchor="RFC9397" target="https://www.rfc-editor.org/info/rfc9397">
+        <front>
+          <title>Trusted Execution Environment Provisioning (TEEP) Architecture</title>
+          <author fullname="M. Pei" initials="M." surname="Pei"/>
+          <author fullname="H. Tschofenig" initials="H." surname="Tschofenig"/>
+          <author fullname="D. Thaler" initials="D." surname="Thaler"/>
+          <author fullname="D. Wheeler" initials="D." surname="Wheeler"/>
+          <date month="July" year="2023"/>
+        </front>
+        <seriesInfo name="RFC" value="9397"/>
+        <seriesInfo name="DOI" value="10.17487/RFC9397"/>
+      </reference>
+      
+    </references>
+  </back>
+</rfc>

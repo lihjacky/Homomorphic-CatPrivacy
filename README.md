@@ -10,6 +10,23 @@ This is the working area for the individual Internet-Draft, "Ciphertext-Based AI
 * [Compare Editor's Copy to Individual Draft](https://agent-security-labs.github.io/Homomorphic-CatPrivacy/#go.draft-li-pearg-ciphertext-inference-tool-mcp.diff)
 
 
+## FHE Use Cases and Gap Analysis
+
+The individual draft **Fully Homomorphic Encryption Use Cases and Gap Analysis for Network Services**
+was published on 15 October 2026 for discussion in PEARG.
+
+* [Published draft on Datatracker](https://datatracker.ietf.org/doc/draft-li-pearg-fhe-use-cases/)
+* [Published XML snapshot](draft%20IETF-IRTF/draft-li-pearg-fhe-use-cases-00.xml)
+* [Editor source](draft-li-pearg-fhe-use-cases.xml)
+* [Use-case contribution template](draft%20IETF-IRTF/templates/use-case-template.md)
+* [RFCXML contribution template](draft%20IETF-IRTF/templates/use-case-template.xml)
+* [Draft materials and contribution guide](draft%20IETF-IRTF/README.md)
+
+Contributions from other companies and the wider community are welcome through
+GitHub issues, pull requests, and the PEARG mailing list (pearg@irtf.org).
+Publication does not imply research-group adoption or consensus.
+
+
 ## Demo
 
 The [`demo/`](demo/) directory holds the reference implementation of the
@@ -35,7 +52,7 @@ These are illustrative artifacts and are not part of the Internet-Draft itself.
 ## Contributing
 
 See the
-[guidelines for contributions](https://github.com/agent-security-labs/Homomorphic-CatPrivacy/blob/main/CONTRIBUTING.md).
+[guidelines for contributions](CONTRIBUTING.md).
 
 The contributing file also has tips on how to make contributions, if you
 don't already know how to do that.
@@ -50,3 +67,4 @@ $ make
 
 Command line usage requires that you have the necessary software installed.  See
 [the instructions](https://github.com/martinthomson/i-d-template/blob/main/doc/SETUP.md).
+
