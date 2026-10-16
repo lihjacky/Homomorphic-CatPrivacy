@@ -1,0 +1,814 @@
+
+
+
+
+Network Working Group                                              L. Li
+Internet-Draft                                                    Huawei
+Intended status: Informational                                     Y. Tu
+Expires: 31 December 2026               National University of Singapore
+                                                            29 June 2026
+
+
+Ciphertext-Based AI Inference Tool Design for the Model Context Protocol
+                                 (MCP)
+          draft-li-pearg-ciphertext-inference-tool-mcp-latest
+
+Abstract
+
+   The Model Context Protocol (MCP) enables AI-powered tools to interact
+   with autonomous agents and Large Language Models (LLMs), but
+   currently processes user inputs and inference results in plaintext.
+   This could introduce some privacy risks and violates the principle of
+   least privilege when processing user data.  This contribution
+   specifies a ciphertext-based AI inference extension for MCP.  The
+   design leverages Homomorphic Encryption (HE) to allow an MCP server
+   or remote tool to perform inference directly on encrypted data
+   without accessing the plaintext.  The server receives encrypted
+   payloads, computes over ciphertexts using an evaluation key, and
+   returns an encrypted result that only the MCP client can decrypt.  To
+   ensure interoperability across various network environments, this
+   document defines a JSON-RPC message format independent of the
+   underlying transport layer (supporting both local stdio and remote
+   Server-Sent Events).  The format extends the existing MCP 'tools/
+   call' method with fields for encrypted payloads, algorithm
+   identifiers, and key references.  Additionally, this document
+   discusses security considerations, key management, and implementation
+   trade-offs.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 31 December 2026.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction
+   2.  Terminology
+   3.  Problem Statement
+     3.1.  Operational Context
+     3.2.  Threat Model
+   4.  Tool Goals
+   5.  System Architecture
+     5.1.  Architectural Domains
+     5.2.  Component Interaction Diagram
+     5.3.  Operational Phases
+   6.  Protocol Specification and JSON-RPC Formats
+     6.1.  Step 1: Local Encryption Request (Client to Local Server)
+     6.2.  Step 2: Local Encryption Response
+     6.3.  Step 3: Ciphertext Upload and Remote Inference Request
+           (Client to Remote Server)
+     6.4.  Step 4: Remote Inference Response (Remote Server to Client)
+     6.5.  Step 5: Local Decryption Request (Client to Local Server)
+     6.6.  Step 6: Local Decryption Response
+   7.  Advanced Cryptographic Negotiation Parameters
+     7.1.  Extended Request Parameters (Client to Server)
+     7.2.  Extended Response Parameters (Server to Client)
+   8.  Security Considerations
+   9.  References
+     9.1.  Normative References
+     9.2.  Informative References
+   Authors' Addresses
+
+1.  Introduction
+
+   The Model Context Protocol (MCP) provides a standardized interface
+   for AI-powered tools to interact with applications, autonomous
+   agents, and large language models.  In a typical deployment, an MCP
+   client (e.g., an IDE plugin or an agent orchestrator) sends user
+   input to an MCP server, which invokes one or more specialized tools
+   to perform inference using local or remote downstream models.
+
+   Currently, the input data, model parameters, and inference results
+   are processed entirely in plaintext.  This grants the MCP server and
+   the tool provider full visibility into potentially user data.  In
+   scenarios involving privacy-critical workflows—such as analyzing
+   medical imagery, product scans, or industrial defects—this plaintext
+   exposure poses significant data leakage risks.  Even if the server
+   operator is deemed honest, a perimeter compromise of the remote tool
+   endpoint could expose historical or active user payloads.  Existing
+   transport-layer solutions like TLS only protect data in transit; the
+   data remains exposed at the computational endpoint.  Emerging
+   paradigms like Federated Learning focus on cooperative model training
+   rather than cipertext remote inference.
+
+   This contribution introduces a protocol extension for ciphertext-
+   based AI inference within the MCP ecosystem.  By leveraging
+   Homomorphic Encryption (HE), an MCP tool can execute deterministic or
+   approximated machine learning inference directly on encrypted inputs.
+   While the base model can be trained in plaintext using conventional
+   deep learning frameworks, it is converted into a homomorphic-friendly
+   representation (e.g., approximating non-polynomial activation
+   functions like ReLU with low-degree polynomials, and scaling weights)
+   prior to its deployment within the secure MCP tool environment.  The
+   remote server handles exclusively encrypted data and public
+   evaluation keys, generating encrypted outputs that are
+   cryptographically opaque to all entities except the holding MCP
+   client.
+
+   To facilitate interoperability among decoupled clients and internet-
+   facing tools, this document specifies standard JSON-RPC schema
+   extensions for the MCP 'tools/call' sequence.  This includes
+   dedicated parameters for cryptographic algorithm identifiers,
+   evaluation key references, and encrypted binary payloads encoded in
+   text-safe formats.
+
+   The remainder of this document is organized as follows: Section 2
+   defines terminology.  Section 3 describes the problem statement and
+   threat model.  Section 4 outlines the design goals.  Section 5
+   presents the system architecture.  Section 6 specifies protocol
+   schemas, and Section 8 discusses security considerations.
+
+2.  Terminology
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   Terms related to the Model Context Protocol (MCP) not explicitly
+   defined in this section retain their meanings as specified in the
+   base MCP specification [MCP].  The following terms are defined for
+   this extension:
+
+   1.   Homomorphic Encryption (HE): A class of cryptographic primitives
+        that permit specific mathematical operations to be performed
+        directly on ciphertexts, yielding an encrypted result which,
+        upon decryption, mirrors the output of those operations executed
+        on the corresponding plaintext: exactly for exact schemes (e.g.,
+        BFV/BGV) and approximately, up to a bounded error, for
+        approximate schemes (e.g., CKKS).
+
+   2.   Ciphertext Inference: The execution of a machine learning
+        model's forward pass inside an untrusted environment where
+        inputs, intermediate activations, and outputs remain encrypted
+        throughout the computation.
+
+   3.   Plaintext Model: A standard machine learning model trained on
+        unencrypted data, utilizing non-linear functions unsuited for
+        direct homomorphic evaluation.
+
+   4.   Homomorphic Model: A modified representation of a plaintext
+        model structured for HE evaluation, wherein continuous non-
+        polynomial functions are replaced by polynomial approximations
+        and model weights are quantized or encoded into a format
+        compatible with ciphertext algebraic circuits.
+
+   5.   Public Key (Encryption Key): The cryptographic key used by the
+        MCP client to encrypt plaintext inputs into ciphertexts.  This
+        key may be safely shared with the MCP server or tool providers.
+
+   6.   Evaluation Key: A set of public cryptographic tokens (e.g.,
+        relinearization or Galois keys) required by the HE scheme to
+        perform complex operations like homomorphic multiplication or
+        rotations on ciphertexts without enabling decryption
+        capabilities.
+
+   7.   Secret Key (Decryption Key): The private cryptographic key held
+        exclusively by the MCP client.  It is strictly required to
+        decrypt inference results back into plaintext and MUST NOT be
+        shared with the MCP server or tools.
+
+   8.   Encrypted Payload: The parameter or response block within an MCP
+        JSON-RPC message containing ciphertexts, typically serialized
+        using standard binary-to-text encodings (e.g., Base64) for
+        transport compatibility.
+
+   9.   Algorithm Identifier (Algorithm ID): A standardized token
+        indicating the specific HE scheme (e.g., CKKS, BFV), ciphertext
+        parameter set (e.g., polynomial modulus degree, coefficient
+        modulus, and scale), and library version utilized.
+
+   10.  Key Reference: A unique pointer or URI within the MCP message
+        linking the payload to its corresponding evaluation keys,
+        supporting both in-band negotiation and out-of-band key
+        management mechanisms.
+
+   11.  Ciphertext Inference Tool: A specialized MCP tool that
+        advertises capability schemas requiring encrypted arguments and
+        providing encrypted structural responses under the 'tools/call'
+        framework.
+
+3.  Problem Statement
+
+   This section describes the operational context, threat model, and
+   security objectives for privacy-preserving, ciphertext-based AI
+   inference within the Model Context Protocol (MCP) framework.
+
+3.1.  Operational Context
+
+   In a standard MCP deployment, an MCP client initiates tool
+   invocations by sending structured requests to an MCP server.  The
+   server acts as an orchestration layer, routing these requests to one
+   or more specialized inference tools.  These tools process user
+   prompts or high-dimensional unstructured data—such as image payloads
+   for computer vision tasks—using trained machine learning models.
+
+   The resulting inference outputs (e.g., classification labels,
+   bounding boxes, or metadata) are returned to the client via the
+   server.  Under the current protocol specification, all components of
+   this exchange—including user images, model parameters, and final
+   inference results—are transmitted and processed in plaintext within
+   the execution environment.
+
+3.2.  Threat Model
+
+   The threat model considers two primary categories of adversaries
+   operating in an untrusted or semi-trusted network environment:
+
+   *Honest-but-Curious Server/Platform:* The MCP server infrastructure
+   is assumed to correctly execute the protocol routing and forward
+   requests to designated tools.  However, the entity operating the
+   server (or an attacker with persistent read-only access) may attempt
+   to observe, log, or harvest user data.  For image recognition tools,
+   this includes persisting raw pixel data, extracting embedded metadata
+   (e.g., EXIF location data), or performing passive traffic analysis
+   (such as inferring image characteristics).
+
+   *External Network Adversaries:* Untrusted third parties operating on
+   the communication path between the Client, the MCP Server, and the
+   Remote Tool endpoints.  These adversaries may eavesdrop on traffic,
+   perform statistical side-channel analysis, or attempt to modify,
+   delay, or replay messages.
+
+   *Exclusions:* This threat model explicitly excludes malicious or
+   compromised MCP clients, fully malicious tools that deliberately
+   exfiltrate data outside the MCP boundary, and active physical attacks
+   targeting the underlying cryptographic hardware or client-side memory
+   leakage.
+
+4.  Tool Goals
+
+   To address the privacy vulnerabilities and operational challenges
+   identified in the problem statement, the ciphertext inference
+   extension for MCP MUST satisfy the following design goals:
+
+   1.  *Confidentiality processing:* The primary goal is to ensure that
+       the intermediate MCP server and the remote tool provider never
+       have access to the plaintext user data.  The processing entity
+       MUST NOT be capable of extracting raw pixels, semantic features,
+       or final inference outputs from the ciphertexts during the
+       execution of the tool workflow.
+
+   2.  *Functional Compatibility:* The design must natively accommodate
+       the algebraic structures and computational primitives required by
+       mainstream machine learning models.  For example, it can support
+       ciphertext evaluations to Convolutional Neural Networks (CNNs)
+       —such as tensor convolutions, matrix multiplications, and
+       polynomial activation approximations—to execute practical
+       computer vision tasks like image classification and object
+       detection, etc.
+
+   3.  *Cryptographic Agnosticism:* The protocol wire format and schema
+       extensions MUST NOT be bound to a single homomorphic encryption
+       paradigm (e.g., CKKS).  The message format must incorporate
+       flexible negotiation parameters, such as a structured Algorithm
+       Identifier (Algorithm ID), allowing clients and servers to
+       independently update their underlying cryptographic backends and
+       parameter sets.
+
+   4.  *Efficient Key Management:* Recognizing that evaluation keys in
+       advanced HE schemes (e.g., bootstrapping or relinearization keys)
+       can scale to hundreds of megabytes, the protocol design should
+       avoid coupling key transmission directly with every individual
+       'tools/call' invocation.  The architecture SHALL support
+       decoupled key lifecycle management, including key reuse, server-
+       side caching, and references to out-of-band key distribution
+       channels to minimize network bandwidth consumption.
+
+5.  System Architecture
+
+   The ciphertext-based AI inference extension introduces a dual-domain
+   architecture designed to decouple cryptographic operations from the
+   core orchestration logic of the AI agent.  This separation ensures
+   that cryptographic keys never leave the user's trusted environment,
+   while computationally expensive inference is offloaded to remote
+   infrastructure.
+
+5.1.  Architectural Domains
+
+   The architecture is divided into two distinct trust boundaries: the
+   Local Domain (Trusted) and the Remote Domain (Untrusted).
+
+   *Local Domain (Trusted Zone):* This domain resides on the user's
+   device or within a secure corporate perimeter.  It consists of two
+   primary components interacting via local MCP transport (e.g., stdio
+   or local HTTP):
+
+   1.  *MCP Client (Agent):* The primary orchestrator (e.g., an LLM-
+       driven autonomous agent).  It determines the workflow, issues
+       'tools/call' requests, and manages the state, but it does not
+       inherently implement complex homomorphic cryptographic
+       primitives.
+
+   2.  *Local Cryptographic MCP Server:* A locally deployed MCP server
+       providing specialized cryptographic tools (e.g., 'fhe_encrypt',
+       'fhe_decrypt').  This server manages the HE key pairs and
+       performs the actual encryption of raw user data and decryption of
+       the remote inference results.  The Secret Key (Decryption Key)
+       strictly remains within this server.
+
+   *Remote Domain (Untrusted Zone):* This domain represents the
+   external, internet-facing infrastructure providing the AI
+   capabilities.
+
+   1.  *Remote Inference MCP Server:* A unified remote endpoint that
+       handles the internet-facing MCP protocol (e.g., via SSE
+       transport) and hosts the Homomorphic Model.  It receives
+       encrypted payloads, executes the ciphertext mathematical
+       evaluations using the client's public Evaluation Key, and
+       directly returns the encrypted inference results.  The internal
+       routing between the server interface and the specific execution
+       tool is considered an implementation detail outside the scope of
+       this protocol.
+
+5.2.  Component Interaction Diagram
+
+   Figure 1 illustrates the structural components, trust boundaries, and
+   the sequential data flow of MCP 'tools/call' interactions.
+
+      (0*) Key Provisioning (Init) -> Obtain 'Key Ref'
++-------------------------------------------------------------+
+|                 Local Domain(Trusted Zone)                  |
+|                                                             |
+|  +------------+ (1) tools/call: fhe_encrypt +------------+  |
+|  |            |============================>| Local      |  |
+|  |            | (2) Response: Ciphertext    | Crypto     |  |
+|  |            |<============================| MCP Server |  |
+|  | MCP Client |                             | [Secret &  |  |
+|  | (Agent)    | (5) tools/call: fhe_decrypt | Eval Key]  |  |
+|  |            |============================>|            |  |
+|  |            | (6) Response: Plaintext     |            |  |
+|  +------------+<============================+------------+  |
+|      ^      |                                               |
++------|------|-----------------------------------------------+
+       |      |
+       |      | (3) tools/call: remote_inference {client_id, session_id, auth_token}
+       |      |     (preceded by N x upload_ciphertext_chunk, by session_id)
++------|------|-----------------------------------------------+
+|      |      |           Remote Domain                       |
+|  +---|------V--------------------------------------------+  |
+|  |  (4) Response:         Remote Inference MCP Server    |  |
+|  |      Encrypted     [Homomorphic Model, Eval Key Cache]|  |
+|  |      Result                                           |  |
+|  |                                                       |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
+
+    Figure 1: Dual-Domain Architecture and Workflow for Ciphertext
+                              Inference
+
+5.3.  Operational Phases
+
+   The execution of a ciphertext inference workflow is divided into two
+   distinct phases.  The MCP Client acts as the central router
+   orchestrating all operations.
+
+   *Phase 1: Key Provisioning Phase*
+
+   To prevent excessive bandwidth consumption during each inference, the
+   Evaluation Key SHALL be provisioned to the Remote Inference MCP
+   Server independently.  Once successfully provisioned, the Remote
+   Server issues a 'Key Reference' (e.g., a URI or session token) which
+   the Client stores for subsequent use.
+
+   TODO: How the key (e.g., evaluation key) can be provisioned is ffs
+
+   *Phase 2: Ciphertext Inference Workflow*
+
+   The core inference sequence consists of three distinct request/
+   response interaction pairs orchestrated by the client:
+
+   1.  *Local Encryption (Steps 1-2):* The Client initiates a 'tools/
+       call' request to the Local Cryptographic MCP Server containing
+       the raw user data.  The local server processes the plaintext and
+       returns the Encrypted Payload.
+
+   2.  *Remote Inference (Steps 3-4):* The Client issues a 'tools/call'
+       request to the Remote Inference MCP Server.  The request includes
+       the Encrypted Payload, the 'Key Reference', and the Algorithm ID.
+       The remote server evaluates the ciphertext through its
+       homomorphic-friendly model and returns an Encrypted Result.
+
+   3.  *Local Decryption (Steps 5-6):* The Client sends the Encrypted
+       Result via a final 'tools/call' back to the Local Cryptographic
+       MCP Server.  The local server uses the Secret Key to decipher the
+       payload and returns the final Plaintext Result to the Client.
+
+6.  Protocol Specification and JSON-RPC Formats
+
+   This section specifies the standard JSON-RPC message structures
+   required to execute the ciphertext inference workflow within the MCP
+   ecosystem.  All interactions are based on the standard MCP 'tools/
+   call' method, extended with specific argument schemas for
+   cryptographic payloads.
+
+   [TODO: Define Step 0 - Key Provisioning Request and Response
+   Formats.]
+
+6.1.  Step 1: Local Encryption Request (Client to Local Server)
+
+   To initiate the workflow, the MCP Client sends a 'tools/call' request
+   to the Local Cryptographic MCP Server to encrypt the raw user data.
+   The target tool is generically referenced as 'fhe_encrypt'.
+
+   {
+     "jsonrpc": "2.0",
+     "id": "req-001",
+     "method": "tools/call",
+     "params": {
+       "name": "fhe_encrypt",
+       "arguments": {
+         "client_id": "agent_fe8354f2851b",
+         "image_path": "/home/user/cat.jpg",
+         "session_dir": "/runtime_mcp/sessions/session_20260617_8f3a9b"
+       }
+     }
+   }
+
+                Figure 2: Example: Local Encryption Request
+
+   The 'client_id' identifies the calling client and selects its locally
+   held HE key set; the corresponding Secret Key never leaves the Local
+   Domain, while the matching Evaluation Key is the one provisioned to
+   the Remote Inference MCP Server during the Key Provisioning phase.
+   The 'image_path' is an absolute path to the plaintext input on the
+   trusted host; only this reference is passed to the local server, so
+   the raw image bytes never appear in any MCP message.  The
+   'session_dir' designates the local directory into which the resulting
+   input ciphertexts are written for the current inference session.  The
+   HE scheme and parameter set are determined by the key set bound to
+   'client_id', so no separate algorithm identifier is required in this
+   request.
+
+6.2.  Step 2: Local Encryption Response
+
+   [TODO: Define Step 2 - The response from the Local Server containing
+   the 'encrypted_payload' as a Base64 string.]
+
+6.3.  Step 3: Ciphertext Upload and Remote Inference Request (Client to
+      Remote Server)
+
+   The encrypted input produced in Step 2 is typically too large to
+   embed in a single JSON-RPC message; a CKKS-encoded image input can
+   span tens to hundreds of megabytes across multiple ciphertext
+   objects.  MCP carries no native binary frame, so all binary data is
+   conveyed as Base64 strings within JSON 'arguments'.  Following the
+   same decoupling principle applied to evaluation keys, the MCP Client
+   therefore transfers the ciphertext to the Remote Inference MCP Server
+   in bounded, Base64-encoded chunks via repeated 'tools/call'
+   invocations, and only then triggers evaluation.
+
+   *Ciphertext Upload.* Each ciphertext object is split into transport-
+   sized chunks (e.g., 32 MiB before encoding).  Every chunk is
+   delivered as an individual 'tools/call' to the
+   'upload_ciphertext_chunk' tool, all sharing a common 'session_id'.
+   The server stages and reassembles the chunks for that session prior
+   to evaluation.
+
+   {
+     "jsonrpc": "2.0",
+     "id": "up-014",
+     "method": "tools/call",
+     "params": {
+       "name": "upload_ciphertext_chunk",
+       "arguments": {
+         "client_id": "agent_fe8354f2851b",
+         "session_id": "session_20260617_8f3a9b",
+         "file_name": "enc_input_ic0_phase0.bin",
+         "chunk_index": 0,
+         "total_chunks": 2,
+         "chunk_b64": "base64_encoded_ciphertext_chunk...",
+         "auth_token": "k7Qf6w2Jx0aB9dW3nT1uY5vH8sR4eL2"
+       }
+     }
+   }
+
+          Figure 3: Example: Ciphertext Upload Request (one chunk)
+
+   The 'session_id' groups all chunks (and the subsequent inference) of
+   a single request.  The 'file_name' identifies the target ciphertext
+   object, while 'chunk_index' and 'total_chunks' let the server order
+   the slices and detect when an object is complete.  The 'chunk_b64'
+   field carries one Base64-encoded slice whose decoded size MUST NOT
+   exceed the negotiated maximum (e.g., 32 MiB).  The 'auth_token'
+   authorizes the upload.  The server returns a per-chunk
+   acknowledgement (for example, '{"ok": true, "file_name":
+   "enc_input_ic0_phase0.bin", "chunk_index": 0, "chunk_bytes":
+   4194304}') and never reconstructs any plaintext.
+
+   *Inference Invocation.* Once all chunks for the session are uploaded,
+   the MCP Client invokes the remote inference tool, which references
+   the staged ciphertext by 'session_id' rather than re-transmitting it.
+   This is the core operational message transmitted over the untrusted
+   network (e.g., via Server-Sent Events).
+
+   {
+     "jsonrpc": "2.0",
+     "id": "req-002",
+     "method": "tools/call",
+     "params": {
+       "name": "remote_inference_cnn",
+       "arguments": {
+         "client_id": "agent_fe8354f2851b",
+         "session_id": "session_20260617_8f3a9b",
+         "auth_token": "k7Qf6w2Jx0aB9dW3nT1uY5vH8sR4eL2",
+         "omp_threads": 9
+       }
+     }
+   }
+
+                Figure 4: Example: Remote Inference Request
+
+   The 'client_id' acts as the Key Reference: the remote server resolves
+   it to the client's previously provisioned, cached Evaluation Key set,
+   so no key material is carried in the request.  The 'session_id'
+   references the encrypted input that was transferred to the remote
+   server for this session; the server assembles and evaluates exactly
+   that ciphertext set through its Homomorphic Model.  The 'auth_token'
+   is a bearer credential authorizing use of the client's cached keys
+   and session; it is verified server-side against a stored hash and
+   MUST be transmitted only over a confidentiality-protected channel.
+   The 'omp_threads' field is an OPTIONAL hint for the degree of
+   evaluation parallelism and does not affect the result.  Because the
+   HE scheme and parameter set are fixed by the referenced key set, no
+   plaintext, key material, or separate 'algorithm_id' appears in this
+   request.
+
+6.4.  Step 4: Remote Inference Response (Remote Server to Client)
+
+   Upon successful homomorphic evaluation, the Remote Inference MCP
+   Server returns the encrypted inference results.  The response
+   strictly adheres to the standard MCP tool response structure,
+   encapsulating the ciphertext within the 'content' array.
+
+   {
+     "jsonrpc": "2.0",
+     "id": "req-002",
+     "result": {
+       "content": [
+         {
+           "type": "text",
+           "text": "{\"ok\": true, \"encrypted_logit_b64\": \"base64_encoded_output...\", \"encrypted_logit_bytes\": 1048576, \"profile\": {\"infer_s\": 57.1}}"
+         }
+       ],
+       "isError": false
+     }
+   }
+
+                Figure 5: Example: Remote Inference Response
+
+   The 'text' field contains a serialized JSON string, following the MCP
+   tool-response convention.  The 'encrypted_logit_b64' field carries
+   the Base64-encoded output ciphertext, i.e., the encrypted inference
+   result, which is decryptable only with the client's Secret Key. The
+   'encrypted_logit_bytes' field is the size in bytes of the decoded
+   ciphertext, useful for integrity and transfer checks.  The 'profile'
+   object conveys OPTIONAL evaluation metadata (e.g., 'infer_s', the
+   homomorphic evaluation time in seconds).  The server MUST NOT return
+   any plaintext or semantic representation of the inference outcome.
+
+6.5.  Step 5: Local Decryption Request (Client to Local Server)
+
+   To finalize the workflow, the MCP Client passes the remote
+   'encrypted_result' back to the Local Cryptographic MCP Server for
+   decryption, invoking the 'fhe_decrypt' tool.
+
+   {
+     "jsonrpc": "2.0",
+     "id": "req-003",
+     "method": "tools/call",
+     "params": {
+       "name": "fhe_decrypt",
+       "arguments": {
+         "client_id": "agent_fe8354f2851b",
+         "encrypted_logit_path":
+           "/runtime_mcp/sessions/session_20260617_8f3a9b/enc_logit.bin"
+       }
+     }
+   }
+
+                Figure 6: Example: Local Decryption Request
+
+   The 'client_id' selects the matching locally held Secret Key. The
+   'encrypted_logit_path' is a local path to the encrypted result
+   obtained in Step 4: the client persists the Base64 ciphertext from
+   the remote response to this file and passes only its path to the
+   local server, which decrypts it with the Secret Key and structures
+   the final plaintext result before returning it to the agent (see Step
+   6).  As with encryption, the ciphertext is exchanged by local
+   reference and is never carried back over a remote MCP message.
+
+6.6.  Step 6: Local Decryption Response
+
+   [TODO: Define Step 6 - The final response returning the plaintext
+   structured data to the MCP Client.]
+
+7.  Advanced Cryptographic Negotiation Parameters
+
+   While the core protocol defined in Section 6 assumes that the Remote
+   Inference MCP Server enforces default homomorphic configurations,
+   practical deployments often require fine-grained control over
+   computation.  Variables such as multiplicative depth, ciphertext
+   noise, and batch processing strictly govern the feasibility and
+   performance of FHE operations.
+
+   To facilitate more flexible ciphertext inference services and future
+   protocol standardization, this section outlines recommended optional
+   parameters.  These parameters MAY be included within the 'arguments'
+   object of the request or the 'structuredContent' object of the
+   response to enable dynamic capability negotiation between the MCP
+   Client and the Remote Server.
+
+7.1.  Extended Request Parameters (Client to Server)
+
+   The following parameters allow the client to define the precise
+   cryptographic context and payload structure before remote execution:
+
+   *  *scheme_context:* Specifies the underlying mathematical scheme
+      beyond a simple Algorithm ID.  For AI inference, this typically
+      indicates 'CKKS' (for approximate floating-point arithmetic) or
+      'BFV/BGV' (for exact integer arithmetic), dictating the server's
+      evaluation rules.
+
+   *  *poly_modulus_degree & scale:* Explicitly declares the polynomial
+      modulus degree N (e.g., 8192, 16384), which determines the number
+      of slots available in a single ciphertext (N/2 for CKKS, e.g.,
+      N=16384 yields 8192; N for BFV/BGV), and the scale factor
+      essential for CKKS precision management.
+
+   *  *coeff_modulus:* The ordered chain of RNS prime moduli defining
+      the ciphertext modulus.  For CKKS this chain governs the available
+      multiplicative depth (one level is consumed per rescaling) and,
+      together with poly_modulus_degree, determines the achievable
+      security level; the server uses it to validate that the requested
+      computation fits within the modulus budget.
+
+   *  *security_level:* The targeted bit-security of the cryptographic
+      context (e.g., 128, 192, or 256 bits).  For RLWE-based schemes
+      this is a function of the polynomial modulus degree and the total
+      bit-length of the coefficient modulus, per the Homomorphic
+      Encryption Security Standard [HES] (see also the FHE
+      standardization effort in [ISO-FHE]).  The server MUST reject any
+      parameter set whose poly_modulus_degree and coeff_modulus do not
+      meet the declared target, enabling weak-parameter requests to be
+      refused before evaluation.
+
+   *  *max_multiplication_depth:* The client's estimated upper bound of
+      consecutive homomorphic multiplications required for the task.
+      The server SHOULD use this to pre-validate whether the requested
+      inference exceeds the theoretical limit of the provided
+      ciphertexts, aborting early to save computational resources.
+
+   *  *input_packing_format:* Defines how the high-dimensional data
+      (e.g., image pixels) is mapped into the 1D ciphertext slots (e.g.,
+      "gip_2d", "nchw_interleaved").  This is critical for the server to
+      determine the correct stride for Galois rotations during
+      convolutional operations.
+
+   *  *batch_size & slot_count:* Indicates how many independent data
+      samples are packed into the current ciphertext slots (SIMD
+      operations).  This allows the remote server to optimize resource
+      allocation for batch inference.
+
+   *  *galois_key_mappings:* A dictionary mapping specific spatial
+      rotation steps (e.g., strides for a 3x3 convolution window) to
+      their corresponding Galois Key references.  This enables the
+      server to perform shifting operations on ciphertext slots
+      efficiently.
+
+7.2.  Extended Response Parameters (Server to Client)
+
+   Upon completing or failing the inference, the server SHOULD provide
+   cryptographic telemetry to assist the client in parsing the result or
+   orchestrating fallback workflows:
+
+   *  *noise_budget_remaining:* For exact schemes (BFV/BGV), the
+      remaining invariant noise budget of the output ciphertext,
+      measured in bits.  If it approaches zero, the ciphertext may fail
+      decryption.  For approximate schemes (CKKS), where no such bit-
+      budget exists, the server instead reports the remaining level (the
+      count of unused primes in the coefficient-modulus chain) and the
+      current scale, indicating the multiplicative headroom left before
+      a re-encryption or bootstrapping workflow is required.
+
+   *  *computation_depth_used:* The actual multiplicative depth consumed
+      during the inference.  Clients can compare this against their
+      estimates for auditing or future optimization.
+
+   *  *output_shape:* An array (e.g., [1, 84, 84]) describing the
+      structural dimensions of the encrypted tensor.  This is strictly
+      required for the Local Cryptographic MCP Server to correctly
+      unflatten the decrypted payload into meaningful semantic data
+      (e.g., bounding boxes).
+
+   *  *error_code:* Standardized machine-readable exceptions specific to
+      homomorphic operations (e.g., "ERROR_DEPTH_EXCEEDED",
+      "ERROR_INVALID_GALOIS_KEY", "ERROR_NOISE_OVERFLOW").
+
+   *  *requires_decryption:* A boolean flag used for Agent
+      orchestration.  If true, it explicitly signals to the LLM/Agent
+      that the current output is an opaque ciphertext and MUST be routed
+      to a local decryption tool before any subsequent plaintext
+      analysis tools can be invoked.
+
+8.  Security Considerations
+
+   This section analyzes the fundamental security guarantees using FHE
+   in MCP, and discusses trust boundaries, and protection mechanisms
+   required to ensure the secure operation of the ciphertext inference
+   extension.
+
+   Plaintext Confidentiality at the Remote Server: The primary security
+   guarantee of this protocol is that the Remote Inference MCP Server
+   operates in a non-trusted environment regarding user data.  Because
+   all inputs, intermediate activations, and outputs are encrypted using
+   a homomorphic scheme (e.g., CKKS) before leaving the local trusted
+   domain, the remote server cannot derive any plaintext semantic
+   information.  Even in the event of a total server perimeter breach or
+   insider compromise at the remote site, historical and active user
+   data remains cryptographically secure.
+
+   Isolation of the Local Cryptographic Server: Since the Local
+   Cryptographic MCP Server is responsible for generating cryptographic
+   keys, encrypting raw user assets (such as pixel data), and decrypting
+   inference results, it handles highly plaintext.  Consequently, the
+   local server MUST be deployed within a secure zone or trusted domain
+   (e.g., restricted to localhost).  It MUST NOT be exposed to the
+   public internet.
+
+   PKI Principles for Key Provisioning: To prevent Man-in-the-Middle
+   (MitM) adversaries from substituting the client's public Evaluation
+   Keys with malicious keys (which could lead to targeted calculation
+   failures or subtle cryptographic leaks), the Key Provisioning phase
+   MUST adhere to Public Key Infrastructure (PKI) principles.
+   Evaluation keys and their associated Key References SHOULD be
+   cryptographically signed, authenticated, and distributed over trusted
+   channels.  This ensures that the Remote Server can verifiably bind an
+   incoming evaluation key to a legitimate, authenticated MCP Client.
+
+   Payload Integrity Protection: Homomorphic ciphertexts and cleartext
+   RPC parameters are highly susceptible to active tampering attacks;
+   subtle bit-flips or structural modifications by a network adversary
+   can corrupt the algebraic circuits, leading to computational failures
+   or potential side-channel leaks.  Therefore, all 'tools/call'
+   requests and responses transmitted between the Local Domain and the
+   Remote Inference Server MUST implement robust integrity protection.
+   In addition to transport-layer security (e.g., TLS), payloads SHOULD
+   incorporate application-layer Message Authentication Codes (MACs) or
+   signatures to ensure end-to-end data integrity from the Client to the
+   Remote Server.
+
+9.  References
+
+9.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", RFC 2119, DOI 10.17487/RFC2119, March
+              1997, <https://www.rfc-editor.org/info/rfc2119>.
+
+9.2.  Informative References
+
+   [HES]      HomomorphicEncryption.org, "Homomorphic Encryption
+              Security Standard", November 2018,
+              <https://homomorphicencryption.org/standard/>.
+
+   [ISO-FHE]  ISO/IEC, "Information security - Fully homomorphic
+              encryption - Part 1: General", ISO/IEC DIS 28033-1, 2024.
+
+   [MCP]      Anthropic, "Model Context Protocol Specification".
+
+Authors' Addresses
+
+   Lun Li
+   Huawei
+   Email: lilun20@huawei.com
+
+
+   Yaowei Tu
+   National University of Singapore
+   Email: Architect117@u.nus.edu
